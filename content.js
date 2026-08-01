@@ -1,9 +1,4 @@
 (function () {
-  // executeScript() may be used as a fallback for a tab that predates the
-  // extension installation. Do not register a second message listener when
-  // the manifest content script is already active.
-  if (globalThis.__olmPdfArchiverLoaded) return;
-  globalThis.__olmPdfArchiverLoaded = true;
   const MESSAGE = "olm-pdf-print-mode";
   let cleanup = null;
 

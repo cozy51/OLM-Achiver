@@ -1,4 +1,4 @@
-import { buildFilename, isSupportedOutlookUrl } from "./lib.js";
+import { buildFilename, isSupportedOutlookUrl, selectOutlookTab } from "./lib.js";
 
 const send = (tabId, payload) => chrome.tabs.sendMessage(tabId, payload);
 
@@ -11,9 +11,25 @@ async function preparePrintMode(tab) {
     // already open when the extension was installed or reloaded. Inject it on
     // demand, then retry so users do not have to refresh Outlook themselves.
     if (!/Receiving end does not exist|Could not establish connection/i.test(error.message || "")) throw error;
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] });
+    // Re-check the real tab URL immediately before injection. In some Edge
+    // configurations the extension popup itself can temporarily be reported
+    // as the active page.
+    const currentTab = await chrome.tabs.get(tab.id);
+    if (!isSupportedOutlookUrl(currentTab.url)) {
+      throw new Error("Outlook のメールタブを特定できませんでした。メールを開いたタブに戻って再実行してください。");
+    }
+    await chrome.scripting.executeScript({
+      target: { tabId: currentTab.id },
+      files: ["content.js"],
+      world: "ISOLATED"
+    });
     return send(tab.id, payload);
   }
+}
+
+async function findOutlookTab() {
+  const tabs = await chrome.tabs.query({ currentWindow: true });
+  return selectOutlookTab(tabs);
 }
 
 chrome.runtime.onMessage.addListener((request, _sender, respond) => {
@@ -23,9 +39,9 @@ chrome.runtime.onMessage.addListener((request, _sender, respond) => {
 });
 
 async function saveCurrentMail() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id || !isSupportedOutlookUrl(tab.url)) {
-    throw new Error("Outlook on the web のメール画面を開いてください。");
+  const tab = await findOutlookTab();
+  if (!tab) {
+    throw new Error("このウィンドウで Outlook on the web のメールを開いてください。");
   }
 
   const prepared = await preparePrintMode(tab);

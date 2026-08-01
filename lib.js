@@ -37,3 +37,9 @@ export function isSupportedOutlookUrl(value) {
     return false;
   }
 }
+
+export function selectOutlookTab(tabs) {
+  const candidates = tabs.filter(tab => tab.id && isSupportedOutlookUrl(tab.url));
+  return candidates.find(tab => tab.active) ||
+    candidates.sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+}

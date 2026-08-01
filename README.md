@@ -31,4 +31,5 @@ Outlook の画面構造が変更された場合は、メール本文を検出で
 ## トラブルシューティング
 
 - `Could not establish connection. Receiving end does not exist.` が表示された場合は、最新版へ更新してください。初回実行時に必要な処理を自動注入してから再試行します。
+- `Cannot access a chrome-extension:// URL of different extension` が表示されていた問題は修正済みです。拡張機能のポップアップではなく、同じウィンドウ内の Outlook タブだけを選択して処理します。
 - Outlook のサインイン画面やメール一覧だけを表示している場合は保存できません。対象メールを開いてから実行してください。
