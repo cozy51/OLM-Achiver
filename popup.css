@@ -1,0 +1,9 @@
+:root { color-scheme: light; font-family: "Segoe UI", "Yu Gothic UI", sans-serif; }
+body { width: 350px; margin: 0; padding: 20px; color: #242424; background: linear-gradient(145deg, #fff, #f2f7ff); }
+main { display: flex; gap: 14px; align-items: center; }
+.mark { display: grid; place-items: center; flex: 0 0 54px; height: 54px; border-radius: 14px; color: white; background: #c42b1c; font-weight: 700; box-shadow: 0 6px 14px #c42b1c40; }
+h1 { margin: 0 0 5px; font-size: 17px; } p { margin: 0; font-size: 12px; line-height: 1.5; color: #616161; }
+button { width: 100%; margin-top: 18px; padding: 11px; border: 0; border-radius: 7px; background: #0f6cbd; color: white; font-size: 14px; font-weight: 600; cursor: pointer; }
+button:hover { background: #115ea3; } button:disabled { opacity: .6; cursor: wait; }
+#status { min-height: 18px; margin-top: 10px; text-align: center; overflow-wrap: anywhere; }
+#status.error { color: #c42b1c; }
