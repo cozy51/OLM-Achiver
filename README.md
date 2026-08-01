@@ -32,3 +32,4 @@ Outlook の画面構造が変更された場合は、メール本文を検出で
 
 - `Could not establish connection` や `Cannot access a chrome-extension:// URL of different extension` が表示されていた問題は修正済みです。最新版ではコンテンツスクリプトを注入せず、PDF 出力にも使用する Edge のデバッグ API 経由で印刷用ページを準備します。
 - Outlook のサインイン画面やメール一覧だけを表示している場合は保存できません。対象メールを開いてから実行してください。
+- エラーの先頭に `【失敗箇所: ...】` を表示します。`Edge のPDF機能への接続` ならURL取得・PDF作成より前のセキュリティ制限、`メール内容とURLの取得` ならOutlook画面の読み取り、`PDFの作成` ならPDF変換段階の問題です。

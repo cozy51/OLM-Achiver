@@ -10,7 +10,8 @@ button.addEventListener("click", async () => {
     status.textContent = `保存しました: ${result.filename}`;
   } catch (error) {
     status.className = "error";
-    status.textContent = error.message || "保存に失敗しました。";
+    const message = error.message || "保存に失敗しました。";
+    status.textContent = `${message}\n\n「失敗箇所」を確認すると、URL取得前かPDF作成時かを判別できます。`;
   }
   button.disabled = false;
 });

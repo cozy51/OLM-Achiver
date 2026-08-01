@@ -5,5 +5,5 @@ main { display: flex; gap: 14px; align-items: center; }
 h1 { margin: 0 0 5px; font-size: 17px; } p { margin: 0; font-size: 12px; line-height: 1.5; color: #616161; }
 button { width: 100%; margin-top: 18px; padding: 11px; border: 0; border-radius: 7px; background: #0f6cbd; color: white; font-size: 14px; font-weight: 600; cursor: pointer; }
 button:hover { background: #115ea3; } button:disabled { opacity: .6; cursor: wait; }
-#status { min-height: 18px; margin-top: 10px; text-align: center; overflow-wrap: anywhere; }
+#status { min-height: 18px; margin-top: 10px; text-align: left; overflow-wrap: anywhere; white-space: pre-wrap; }
 #status.error { color: #c42b1c; }
