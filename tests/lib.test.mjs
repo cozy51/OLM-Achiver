@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { buildFilename, isSupportedOutlookUrl, sanitizeFilenamePart, selectOutlookTab, stripReplyPrefix } from "../lib.js";
+import { buildPrintPageExpression } from "../print-page.js";
 
 assert.equal(stripReplyPrefix("RE: Re[2]: FW： 月次報告"), "月次報告");
 assert.equal(stripReplyPrefix("返信: 転送：確認"), "確認");
@@ -11,4 +12,7 @@ assert.equal(selectOutlookTab([
   { id: 1, active: true, url: "chrome-extension://another-extension/popup.html", lastAccessed: 30 },
   { id: 2, active: false, url: "https://outlook.cloud.microsoft/mail/deeplink/read/id", lastAccessed: 20 }
 ]).id, 2);
+const expression = buildPrintPageExpression("start", 'https://outlook.cloud.microsoft/mail/deeplink/read/a?x="quoted"');
+assert.match(expression, /outlookPrintMode/);
+assert.match(expression, /\\"quoted\\"/);
 console.log("lib tests passed");
