@@ -1,5 +1,5 @@
 import { buildFilename, isSupportedOutlookUrl, selectOutlookTab } from "./lib.js";
-import { buildPrintPageExpression } from "./print-page.js";
+import { buildPrintPageExpression, outlookPrintMode } from "./print-page.js";
 
 const STEP_LABELS = {
   findTab: "Outlook タブの特定",
@@ -23,6 +23,29 @@ async function findOutlookTab() {
   return selectOutlookTab(tabs);
 }
 
+async function saveWithPrintDialog(tab) {
+  const startResults = await runStep("readMail", () => chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: outlookPrintMode,
+    args: ["start", tab.url],
+    world: "ISOLATED"
+  }));
+  const prepared = startResults?.[0]?.result;
+  if (!prepared?.ok) throw new Error(`【失敗箇所: メール内容とURLの取得】${prepared?.error || "メールの読み取りに失敗しました。"}`);
+  const filename = buildFilename({
+    sender: prepared.metadata.sender,
+    subject: prepared.metadata.subject,
+    date: new Date(prepared.metadata.date)
+  });
+  await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: outlookPrintMode,
+    args: ["print", filename],
+    world: "ISOLATED"
+  });
+  return { filename, printDialog: true };
+}
+
 chrome.runtime.onMessage.addListener((request, _sender, respond) => {
   if (request.type !== "save-current-mail") return;
   saveCurrentMail().then(result => respond({ ok: true, ...result })).catch(error => respond({ ok: false, error: error.message }));
@@ -36,15 +59,26 @@ async function saveCurrentMail() {
   }
 
   const target = { tabId: tab.id };
+  let attached = false;
   try {
-    await runStep("attach", async () => {
-      // Re-read the URL just before attaching, because a tab can navigate
-      // between selection and debugger attachment.
-      const current = await chrome.tabs.get(tab.id);
-      if (!isSupportedOutlookUrl(current.url)) throw new Error("対象タブがOutlook以外のページへ移動しました。");
+    // Re-read the URL because a tab can navigate between selection and use.
+    const current = await chrome.tabs.get(tab.id);
+    if (!isSupportedOutlookUrl(current.url)) {
+      throw new Error(`【失敗箇所: ${STEP_LABELS.findTab}】対象タブがOutlook以外のページへ移動しました。`);
+    }
+    try {
       await chrome.debugger.attach(target, "1.3");
+      attached = true;
       await chrome.debugger.sendCommand(target, "Page.enable");
-    });
+    } catch (error) {
+      // Some managed Edge environments prohibit debugger attachment. The
+      // standard print dialog can still create a link-preserving PDF.
+      if (attached) {
+        await chrome.debugger.detach(target).catch(() => {});
+        attached = false;
+      }
+      return saveWithPrintDialog(tab);
+    }
     const prepared = await runStep("readMail", async () => {
       const evaluated = await chrome.debugger.sendCommand(target, "Runtime.evaluate", {
         expression: buildPrintPageExpression("start", tab.url),
@@ -74,10 +108,12 @@ async function saveCurrentMail() {
     }));
     return { filename };
   } finally {
-    await chrome.debugger.sendCommand(target, "Runtime.evaluate", {
-      expression: buildPrintPageExpression("end"),
-      returnByValue: true
-    }).catch(() => {});
-    await chrome.debugger.detach(target).catch(() => {});
+    if (attached) {
+      await chrome.debugger.sendCommand(target, "Runtime.evaluate", {
+        expression: buildPrintPageExpression("end"),
+        returnByValue: true
+      }).catch(() => {});
+      await chrome.debugger.detach(target).catch(() => {});
+    }
   }
 }

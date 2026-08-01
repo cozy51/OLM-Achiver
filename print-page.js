@@ -1,6 +1,23 @@
-function outlookPrintMode(action, sourceUrl) {
+export function outlookPrintMode(action, sourceUrl) {
   const WRAPPER_ID = "olm-pdf-document";
   const STYLE_ID = "olm-pdf-style";
+
+  if (action === "print") {
+    const suggestedName = sourceUrl || document.title;
+    document.title = suggestedName.replace(/\.pdf$/i, "");
+    const finish = () => {
+      document.getElementById(WRAPPER_ID)?.remove();
+      document.getElementById(STYLE_ID)?.remove();
+      if (globalThis.__olmPreviousTitle !== undefined) {
+        document.title = globalThis.__olmPreviousTitle;
+        delete globalThis.__olmPreviousTitle;
+      }
+    };
+    addEventListener("afterprint", finish, { once: true });
+    // Let executeScript return before the modal print preview opens.
+    setTimeout(() => window.print(), 0);
+    return { ok: true };
+  }
 
   if (action === "end") {
     document.getElementById(WRAPPER_ID)?.remove();

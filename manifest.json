@@ -3,7 +3,7 @@
   "name": "Outlook Mail PDF Archiver",
   "version": "1.0.0",
   "description": "Outlook on the web で開いているメールを、元メールへのリンク付き PDF として保存します。",
-  "permissions": ["debugger", "downloads", "tabs"],
+  "permissions": ["debugger", "downloads", "scripting", "tabs"],
   "host_permissions": [
     "https://outlook.office.com/*",
     "https://outlook.office365.com/*",

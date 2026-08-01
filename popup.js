@@ -7,7 +7,9 @@ button.addEventListener("click", async () => {
   try {
     const result = await chrome.runtime.sendMessage({ type: "save-current-mail" });
     if (!result.ok) throw new Error(result.error || "保存に失敗しました。");
-    status.textContent = `保存しました: ${result.filename}`;
+    status.textContent = result.printDialog
+      ? `Edgeの印刷画面を開きました。「プリンター」で「PDFとして保存」を選んでください。\n推奨ファイル名: ${result.filename}`
+      : `保存しました: ${result.filename}`;
   } catch (error) {
     status.className = "error";
     const message = error.message || "保存に失敗しました。";
