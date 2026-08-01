@@ -24,3 +24,16 @@ export function buildFilename({ sender, date, subject }) {
   const time = `${parts.hour}${parts.minute}`;
   return `📩_${sanitizeFilenamePart(sender, "差出人不明")}_${day}_${time}_${sanitizeFilenamePart(stripReplyPrefix(subject), "件名なし")}.pdf`;
 }
+
+export function isSupportedOutlookUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && [
+      "outlook.office.com",
+      "outlook.office365.com",
+      "outlook.cloud.microsoft"
+    ].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
