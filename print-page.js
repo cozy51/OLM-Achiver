@@ -43,7 +43,7 @@ export function outlookPrintMode(action, sourceUrl) {
     .replace(/\s*(?:プロフィールカードを開く|Open profile card).*$/i, "")
     .trim();
 
-  const findSender = (container, body) => {
+  const findSender = (searchRoot, body) => {
     const explicit = first([
       '[data-testid="message-sender"]',
       '[data-testid="sender-name"]',
@@ -53,7 +53,7 @@ export function outlookPrintMode(action, sourceUrl) {
       '[aria-label^="送信者"]',
       '[aria-label^="From"]',
       '[aria-label^="Sender"]'
-    ], container);
+    ], searchRoot);
     if (explicit) {
       return cleanSender(explicit.getAttribute("aria-label") || explicit.getAttribute("title") || elementText(explicit));
     }
@@ -63,10 +63,11 @@ export function outlookPrintMode(action, sourceUrl) {
     // header above the message body and score sender-like values instead of
     // relying only on unstable class names.
     const bodyTop = body.getBoundingClientRect().top;
-    const ignored = /^(?:宛先|To|Cc|CC|返信|全員に返信|転送|Reply|Forward|その他|More)\b|Copilot/i;
+    const ignored = /^(?:(?:宛先|To|Cc|CC|返信|全員に返信|転送|Reply|Forward|その他|More)(?:\s*[:：]|$)|Copilot)/i;
     const seen = new Set();
     const candidates = [];
-    for (const element of container.querySelectorAll('[title], [aria-label], button, [role="button"]')) {
+    const rootTop = searchRoot.getBoundingClientRect().top;
+    for (const element of searchRoot.querySelectorAll('[title], [aria-label], button, [role="button"], span')) {
       const rect = element.getBoundingClientRect();
       if (!rect.width || !rect.height || rect.top >= bodyTop) continue;
       const raw = element.getAttribute("title") || element.getAttribute("aria-label") || elementText(element);
@@ -79,7 +80,7 @@ export function outlookPrintMode(action, sourceUrl) {
       if (/プロフィール|profile/i.test(raw)) score += 3;
       if (element.matches('[data-testid*="sender" i], [class*="sender" i]')) score += 5;
       // The sender is normally the first labelled row in the message header.
-      score += Math.max(0, 3 - Math.floor((rect.top - container.getBoundingClientRect().top) / 30));
+      score += Math.max(0, 3 - Math.floor((rect.top - rootTop) / 30));
       candidates.push({ value, score, top: rect.top, left: rect.left });
     }
     candidates.sort((a, b) => b.score - a.score || a.top - b.top || a.left - b.left);
@@ -105,8 +106,11 @@ export function outlookPrintMode(action, sourceUrl) {
     '[data-testid="message-subject"]', 'h1[title]',
     '[role="heading"][aria-level="2"]', '[role="heading"]'
   ], root)) || document.title.replace(/^メール\s*-\s*/i, "");
-  const sender = findSender(container, body);
-  const timeElement = first(['time[datetime]', '[data-testid="message-date"]', '[title*="202"]'], container);
+  // The sender header is often a sibling of the message-body container, not
+  // its ancestor. Search the whole reading pane while using the body position
+  // as the lower boundary.
+  const sender = findSender(root, body);
+  const timeElement = first(['time[datetime]', '[data-testid="message-date"]', '[title*="202"]'], root);
 
   document.getElementById(WRAPPER_ID)?.remove();
   document.getElementById(STYLE_ID)?.remove();
