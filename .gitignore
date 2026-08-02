@@ -2,3 +2,6 @@
 icons/*.png
 __pycache__/
 *.pyc
+
+# Generated manual (run: ./scripts/build-manual.sh)
+docs/*.pdf
