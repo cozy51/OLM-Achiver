@@ -3,40 +3,16 @@ const status = document.querySelector("#status");
 const senderInput = document.querySelector("#sender");
 const pasteButton = document.querySelector("#paste");
 const hint = document.querySelector("#hint");
-const candidateBox = document.querySelector("#candidates");
 
 const MANUAL_HINT = "Outlookに表示されている差出人名をコピーし、ここへ貼り付けてください。";
 
-function selectCandidate(name, chip) {
-  senderInput.value = name;
-  for (const other of candidateBox.querySelectorAll(".chip")) {
-    other.setAttribute("aria-pressed", String(other === chip));
-  }
-}
-
-function showCandidates(candidates) {
-  candidateBox.textContent = "";
-  for (const candidate of candidates) {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "chip";
-    chip.textContent = candidate.name;
-    chip.title = candidate.address ? `${candidate.name} <${candidate.address}>` : candidate.name;
-    chip.setAttribute("aria-pressed", "false");
-    chip.addEventListener("click", () => selectCandidate(candidate.name, chip));
-    candidateBox.append(chip);
-  }
-  return candidateBox.querySelector(".chip");
-}
-
-// Outlook's markup changes often, so the detected name is only offered as a
-// suggestion. The field stays editable and the paste route keeps working.
+// Only the best match is shown. Listing the runners-up alongside it invites
+// the question of which one is right, when the field itself already answers it.
 async function detectSender() {
   try {
     const result = await chrome.runtime.sendMessage({ type: "detect-sender" });
     if (!result?.ok) throw new Error(result?.error || "差出人を取得できませんでした。");
-    const candidates = result.candidates || [];
-    if (!candidates.length) {
+    if (!result.sender) {
       const reasons = [];
       if (!result.diagnostics?.readingPane) reasons.push("閲覧ウィンドウを特定できません");
       if (!result.diagnostics?.recipientRow) reasons.push("宛先行を特定できません");
@@ -45,13 +21,11 @@ async function detectSender() {
         : MANUAL_HINT;
       return;
     }
-    const firstChip = showCandidates(candidates);
-    if (result.confident && !senderInput.value) {
-      selectCandidate(candidates[0].name, firstChip);
-      hint.textContent = "差出人を自動入力しました。違っていれば候補を選ぶか、直接修正してください。";
-      return;
-    }
-    hint.textContent = "差出人の候補です。正しいものを選ぶか、直接入力してください。";
+    if (senderInput.value) return;
+    senderInput.value = result.sender.name;
+    hint.textContent = result.confident
+      ? "差出人を自動入力しました。違っていれば直接修正してください。"
+      : "差出人の候補を入力しました。念のため確認してください。";
   } catch {
     hint.textContent = MANUAL_HINT;
   }
@@ -65,18 +39,11 @@ pasteButton.addEventListener("click", async () => {
     const clipboardText = (await navigator.clipboard.readText()).trim();
     if (!clipboardText) throw new Error("クリップボードに文字がありません。");
     senderInput.value = clipboardText.replace(/\s+/g, " ");
-    senderInput.dispatchEvent(new Event("input"));
     status.textContent = "差出人名を貼り付けました。";
     senderInput.focus();
   } catch (error) {
     status.className = "error";
     status.textContent = `貼り付けできませんでした: ${error.message || "クリップボードを確認してください。"}`;
-  }
-});
-
-senderInput.addEventListener("input", () => {
-  for (const chip of candidateBox.querySelectorAll(".chip")) {
-    chip.setAttribute("aria-pressed", String(chip.textContent === senderInput.value));
   }
 });
 

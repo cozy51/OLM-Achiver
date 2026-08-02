@@ -5,11 +5,6 @@ main { display: flex; gap: 14px; align-items: center; }
 h1 { margin: 0 0 5px; font-size: 17px; } p { margin: 0; font-size: 12px; line-height: 1.5; color: #616161; }
 label { display: block; margin-top: 18px; font-size: 13px; font-weight: 600; }
 .hint { margin-top: 4px; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
-.chips:empty { display: none; }
-.chip { max-width: 100%; padding: 5px 10px; border: 1px solid #c7c7c7; border-radius: 14px; background: white; color: #242424; font: inherit; font-size: 12px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chip:hover { border-color: #0f6cbd; background: #eef6ff; }
-.chip[aria-pressed="true"] { border-color: #0f6cbd; background: #dcecfb; font-weight: 600; }
 .sender-row { display: flex; align-items: stretch; gap: 7px; margin-top: 7px; }
 input { box-sizing: border-box; min-width: 0; flex: 1; padding: 9px 10px; border: 1px solid #8a8886; border-radius: 6px; font: inherit; }
 input:focus { border-color: #0f6cbd; outline: 2px solid #0f6cbd33; }
