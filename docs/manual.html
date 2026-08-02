@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>Outlook Mail Archiver 利用マニュアル</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 14mm; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    color: #1f1f1f;
+    font-family: "IPAPGothic", "IPAGothic", "Yu Gothic UI", sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.75;
+  }
+  h1, h2, h3 { line-height: 1.4; }
+
+  /* 表紙 */
+  .cover { height: 245mm; display: flex; flex-direction: column; justify-content: center; }
+  .cover .badge {
+    display: inline-grid; place-items: center;
+    width: 74px; height: 74px; border-radius: 18px;
+    background: #c42b1c; color: white; font-size: 20pt; font-weight: 700;
+  }
+  .cover h1 { margin: 26px 0 6px; font-size: 26pt; letter-spacing: .02em; }
+  .cover .sub { margin: 0; font-size: 13pt; color: #444; }
+  .cover .rule { width: 64px; height: 5px; background: #0f6cbd; margin: 26px 0; }
+  .cover dl { display: grid; grid-template-columns: 7em 1fr; gap: 7px 14px; margin: 0; font-size: 10.5pt; }
+  .cover dt { color: #666; }
+  .cover dd { margin: 0; }
+
+  .page-break { break-before: page; }
+
+  h2 {
+    margin: 0 0 14px; padding: 0 0 7px;
+    border-bottom: 3px solid #0f6cbd;
+    font-size: 15pt;
+  }
+  h2 .num {
+    display: inline-grid; place-items: center;
+    width: 26px; height: 26px; margin-right: 10px; border-radius: 7px;
+    background: #0f6cbd; color: white; font-size: 12pt; vertical-align: -4px;
+  }
+  h3 { margin: 22px 0 8px; font-size: 11.5pt; color: #0f4c85; }
+  p { margin: 0 0 10px; }
+  section { break-inside: avoid; margin-bottom: 26px; }
+
+  /* 手順 */
+  ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: step; }
+  ol.steps > li {
+    position: relative; margin-bottom: 14px; padding-left: 38px;
+    break-inside: avoid;
+  }
+  ol.steps > li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 0; top: 1px;
+    display: grid; place-items: center;
+    width: 25px; height: 25px; border-radius: 50%;
+    background: #eaf2fb; color: #0f4c85; font-weight: 700; font-size: 10.5pt;
+  }
+  ol.steps > li strong { display: block; font-size: 11pt; }
+  ol.steps > li .detail { color: #555; font-size: 9.5pt; }
+
+  /* 注意書き */
+  .note {
+    margin: 12px 0; padding: 11px 14px; border-radius: 6px;
+    border-left: 4px solid #0f6cbd; background: #f2f7fd;
+    font-size: 9.5pt; break-inside: avoid;
+  }
+  .note.warn { border-left-color: #c48b00; background: #fdf7e8; }
+  .note .label { display: block; font-weight: 700; margin-bottom: 3px; }
+
+  /* 画面イメージ */
+  .shot {
+    width: 250px; padding: 15px; border: 1px solid #d6d6d6; border-radius: 9px;
+    background: linear-gradient(145deg, #fff, #f2f7ff);
+    font-size: 8.5pt; line-height: 1.5;
+    box-shadow: 0 2px 7px rgba(0,0,0,.07);
+  }
+  .shot .head { display: flex; gap: 9px; align-items: center; margin-bottom: 11px; }
+  .shot .mark {
+    display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 30px;
+    border-radius: 8px; background: #c42b1c; color: white; font-weight: 700; font-size: 8pt;
+  }
+  .shot .title { font-weight: 700; font-size: 9.5pt; }
+  .shot .lbl { font-weight: 700; margin-top: 9px; }
+  .shot .hint { color: #666; font-size: 7.5pt; margin: 2px 0 5px; }
+  .shot .field {
+    padding: 6px 8px; border: 1px solid #8a8886; border-radius: 5px; background: white;
+  }
+  .shot .field.filled { border-color: #0f6cbd; }
+  .shot .btn {
+    margin-top: 9px; padding: 8px; border-radius: 6px;
+    background: #0f6cbd; color: white; text-align: center; font-weight: 700; font-size: 9pt;
+  }
+  .figure { display: flex; gap: 18px; align-items: flex-start; break-inside: avoid; }
+  .figure .caption { flex: 1; font-size: 9.5pt; color: #444; }
+  .figure .caption b { color: #1f1f1f; }
+
+  /* ファイル名の分解 */
+  .filename {
+    margin: 10px 0; padding: 12px 14px; border-radius: 6px;
+    background: #22303d; color: #e9eef3;
+    font-family: "IPAPGothic", monospace; font-size: 10pt;
+    word-break: break-all;
+  }
+  .filename .f-sender { color: #7fd1ff; }
+  .filename .f-date { color: #ffd479; }
+  .filename .f-subject { color: #9fe6a0; }
+  .legend { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; font-size: 9.5pt; margin: 0; }
+  .legend dt { font-weight: 700; }
+  .legend dd { margin: 0; color: #444; }
+  .swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin: 10px 0; }
+  th, td { border: 1px solid #dcdcdc; padding: 7px 9px; text-align: left; vertical-align: top; }
+  th { background: #f0f4f8; font-weight: 700; white-space: nowrap; }
+  code {
+    padding: 1px 5px; border-radius: 3px; background: #eef1f4;
+    font-family: "IPAPGothic", monospace; font-size: 9.5pt;
+  }
+  ul.plain { margin: 0 0 10px; padding-left: 1.2em; }
+  ul.plain li { margin-bottom: 5px; }
+  .footer-note { margin-top: 30px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 8.5pt; color: #777; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="badge">PDF</div>
+  <h1>Outlook Mail Archiver</h1>
+  <p class="sub">Outlook のメールを、元メールへのリンク付き PDF として保存する Edge 拡張機能</p>
+  <div class="rule"></div>
+  <dl>
+    <dt>対象ブラウザー</dt><dd>Microsoft Edge</dd>
+    <dt>対象サービス</dt><dd>Outlook on the web（ブラウザー版 Outlook）</dd>
+    <dt>できること</dt><dd>開いているメールを1クリックで PDF 化し、決まった規則のファイル名で保存する</dd>
+  </dl>
+</div>
+
+<div class="page-break"></div>
+
+<section>
+  <h2><span class="num">1</span>この拡張機能でできること</h2>
+  <p>ブラウザーで開いている Outlook のメールを、そのまま PDF ファイルとして保存します。手作業での印刷設定やファイル名の入力は不要です。</p>
+  <ul class="plain">
+    <li><b>元のメールへ戻れる</b> — PDF の先頭に、そのメールを Outlook で開くリンクが入ります。</li>
+    <li><b>ファイル名が自動で決まる</b> — 差出人・受信日時・件名から組み立てるため、フォルダー内で並べたときに探しやすくなります。</li>
+    <li><b>差出人を自動で入力する</b> — 画面から差出人を読み取り、入力欄へ自動的に入れます。</li>
+  </ul>
+  <div class="note">
+    <span class="label">対応している Outlook のアドレス</span>
+    <code>outlook.office.com</code> / <code>outlook.office365.com</code> / <code>outlook.cloud.microsoft</code><br>
+    デスクトップ版 Outlook アプリでは使用できません。ブラウザーで Outlook を開いてください。
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">2</span>インストール</h2>
+  <p>最初に1回だけ行う作業です。以降は不要です。</p>
+  <ol class="steps">
+    <li>
+      <strong>拡張機能のフォルダーを、PC の分かりやすい場所に置く</strong>
+      <span class="detail">例: <code>C:\Users\（自分）\Documents\OutlookMailArchiver</code>。
+      この後もフォルダーを参照し続けるため、置いたあとは移動や削除をしないでください。</span>
+    </li>
+    <li>
+      <strong>Edge のアドレス欄に <code>edge://extensions</code> と入力して開く</strong>
+    </li>
+    <li>
+      <strong>画面左下の「開発者モード」をオンにする</strong>
+    </li>
+    <li>
+      <strong>「展開して読み込み」を押し、手順1のフォルダーを選ぶ</strong>
+      <span class="detail">フォルダーの中にある <code>manifest.json</code> が見えている階層を選択します。</span>
+    </li>
+    <li>
+      <strong>ツールバーに拡張機能のアイコンが出ることを確認する</strong>
+      <span class="detail">見当たらない場合は、ツールバーのパズルピース型のアイコンを押し、一覧の中の
+      「Outlook Mail PDF Archiver」のピン留めをオンにしてください。</span>
+    </li>
+  </ol>
+  <div class="note">
+    <span class="label">補足</span>
+    ビルドやインストーラーの実行は不要です。<code>edge://extensions</code> の一覧では Edge の標準アイコンで表示されますが、
+    ツールバーには専用のアイコンが表示されます。
+  </div>
+</section>
+
+<div class="page-break"></div>
+
+<section>
+  <h2><span class="num">3</span>使い方</h2>
+  <ol class="steps">
+    <li>
+      <strong>Outlook で、保存したいメールを1通開く</strong>
+      <span class="detail">一覧で選択して閲覧ウィンドウに表示された状態でも構いません。</span>
+    </li>
+    <li>
+      <strong>ツールバーの拡張機能アイコンを押す</strong>
+      <span class="detail">差出人名が自動で入力されます。</span>
+    </li>
+    <li>
+      <strong>差出人名を確認する</strong>
+      <span class="detail">違っていれば、その場で直接書き換えられます。</span>
+    </li>
+    <li>
+      <strong>「📩 このメールを PDF 保存」を押す</strong>
+    </li>
+    <li>
+      <strong>保存先を選ぶ</strong>
+      <span class="detail">ファイル名はあらかじめ入力されています。そのまま保存して問題ありません。</span>
+    </li>
+  </ol>
+
+  <div class="figure">
+    <div class="shot">
+      <div class="head">
+        <div class="mark">PDF</div>
+        <div>
+          <div class="title">Outlook Mail Archiver</div>
+          <div style="color:#666">開いているメールを、元メールへのリンク付き PDF として保存します。</div>
+        </div>
+      </div>
+      <div class="lbl">差出人名</div>
+      <div class="hint">差出人を自動入力しました。違っていれば直接修正してください。</div>
+      <div class="field filled">山田 太郎 (Yamada,T.)</div>
+      <div class="btn">📩 このメールを PDF 保存</div>
+    </div>
+    <div class="caption">
+      <p><b>アイコンを押したときの画面です。</b></p>
+      <p>差出人名の欄には、Outlook の画面から読み取った差出人が入っています。</p>
+      <p>自動で入らなかった場合は、Outlook の差出人名をコピーしてから
+      <b>貼り付け</b>ボタンを押すか、欄に直接入力してください。</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">4</span>保存されるファイル名</h2>
+  <p>ファイル名は、差出人・受信日時・件名から自動で組み立てられます。</p>
+  <div class="filename">
+    📩_<span class="f-sender">山田 太郎 (Yamada,T.)</span>_<span class="f-date">20260713_2041</span>_<span class="f-subject">月次報告の件</span>.pdf
+  </div>
+  <dl class="legend">
+    <dt><span class="swatch" style="background:#7fd1ff"></span>差出人</dt>
+    <dd>拡張機能の画面で確認した差出人名がそのまま入ります。</dd>
+    <dt><span class="swatch" style="background:#ffd479"></span>受信日時</dt>
+    <dd>PDF を作った時刻ではなく、メールに表示されている受信日時（年月日＋時分）です。</dd>
+    <dt><span class="swatch" style="background:#9fe6a0"></span>件名</dt>
+    <dd>先頭の <code>RE:</code> <code>FW:</code> <code>返信:</code> <code>転送:</code> は自動的に取り除かれます。</dd>
+  </dl>
+  <div class="note">
+    <span class="label">記号について</span>
+    項目の区切りには <code>_</code>（アンダースコア）を使います。そのためファイル名に使えない文字
+    （<code>\ / : * ? " &lt; &gt; |</code>）は <code>-</code>（ハイフン）へ置き換えます。<br>
+    例: 差出人が <code>Ito Takeshi / 伊藤剛</code> の場合 → <code>Ito Takeshi - 伊藤剛</code>
+  </div>
+</section>
+
+<div class="page-break"></div>
+
+<section>
+  <h2><span class="num">5</span>できあがった PDF について</h2>
+  <p>PDF の先頭には、そのメールを Outlook で開くためのリンクが入ります。あとから「元のメールを確認したい」というときに使えます。</p>
+  <div class="note">
+    <span class="label">リンクを新しいタブで開きたいとき</span>
+    リンクを <b>Ctrl キーを押しながらクリック</b>してください（右クリックから「新しいタブで開く」でも同じです）。<br>
+    そのままクリックすると、PDF を表示していた画面が Outlook に切り替わります。
+    どちらの動作になるかは PDF を開いているソフト側が決めているため、PDF ファイル側では指定できません。
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">6</span>困ったときは</h2>
+  <table>
+    <tr>
+      <th>起きていること</th>
+      <th>対処</th>
+    </tr>
+    <tr>
+      <td>「デバッガーがこのブラウザーに接続しました」という通知が出る</td>
+      <td>正常な動作です。PDF を作るための機能を使っている間だけ表示され、自動的に消えます。そのままお使いください。</td>
+    </tr>
+    <tr>
+      <td>印刷の画面が出てきた</td>
+      <td>組織のセキュリティ設定により、PDF 機能へ直接つなげなかった場合の動作です。
+      「プリンター」の欄で <b>PDF として保存</b> を選べば、同じ内容の PDF を保存できます。</td>
+    </tr>
+    <tr>
+      <td>差出人名が自動で入らない</td>
+      <td>Outlook の画面で差出人名をコピーし、<b>貼り付け</b>ボタンを押してください。直接入力しても構いません。</td>
+    </tr>
+    <tr>
+      <td>「メールを1通開いてから再実行してください」と出る</td>
+      <td>メールの一覧だけが表示されている状態です。対象のメールを開いてから、もう一度実行してください。</td>
+    </tr>
+    <tr>
+      <td>「個別URLを取得できませんでした」と出る</td>
+      <td>メール一覧で対象のメールを選択し直してから、もう一度実行してください。</td>
+    </tr>
+    <tr>
+      <td>その他のエラーが出た</td>
+      <td>メッセージの先頭に <code>【失敗箇所: ○○】</code> と表示されます。この部分を添えて連絡してください。
+      どの段階で止まったかが分かります。</td>
+    </tr>
+  </table>
+  <div class="note warn">
+    <span class="label">うまく動かないときにまず試すこと</span>
+    <code>edge://extensions</code> を開き、この拡張機能のカードにある更新（↻）ボタンを押してから、
+    Outlook のページを再読み込みしてください。多くの不具合はこれで解消します。
+  </div>
+</section>
+
+<p class="footer-note">
+  Outlook Mail Archiver 利用マニュアル / Outlook の画面構成が変更された場合、メール情報を読み取れなくなることがあります。
+</p>
+
+</body>
+</html>

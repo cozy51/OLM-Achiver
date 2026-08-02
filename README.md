@@ -28,6 +28,14 @@ Outlook on the web で現在開いているメールを PDF 化する Microsoft 
 
 > PDF 作成中に Edge の「デバッガーがこのブラウザーに接続しました」という通知が一時的に表示されます。これは印刷 API を利用するための正常な動作です。
 
+## 利用マニュアル
+
+配布用のマニュアルは`docs/manual.html`です。PDFは次のコマンドで生成します(Chromium系ブラウザーと日本語フォントが必要です)。生成物`docs/*.pdf`はリポジトリに含めません。
+
+```
+./scripts/build-manual.sh
+```
+
 ## 対応 URL
 
 - `outlook.office.com`
