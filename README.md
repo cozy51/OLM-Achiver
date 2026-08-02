@@ -30,6 +30,8 @@ Outlook on the web で現在開いているメールを PDF 化する Microsoft 
 
 Outlook の画面構造が変更された場合は、メール本文を検出できなくなる可能性があります。
 
+差出人はOutlookの専用属性を優先し、属性がない画面ではメール本文より上にあるプロフィール名、メールアドレス、`氏名 (英字名)` 形式の表示を判定して取得します。
+
 ## トラブルシューティング
 
 - `Could not establish connection` や `Cannot access a chrome-extension:// URL of different extension` が表示されていた問題は修正済みです。最新版ではコンテンツスクリプトを注入せず、PDF 出力にも使用する Edge のデバッグ API 経由で印刷用ページを準備します。

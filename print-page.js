@@ -33,9 +33,57 @@ export function outlookPrintMode(action, sourceUrl) {
   const first = (selectors, root = document) => {
     for (const selector of selectors) {
       const found = root.querySelector(selector);
-      if (found && elementText(found)) return found;
+      if (found && (elementText(found) || found.getAttribute("aria-label") || found.getAttribute("title"))) return found;
     }
     return null;
+  };
+
+  const cleanSender = value => (value || "")
+    .replace(/^(?:差出人|送信者|From|Sender)\s*[:：]?\s*/i, "")
+    .replace(/\s*(?:プロフィールカードを開く|Open profile card).*$/i, "")
+    .trim();
+
+  const findSender = (container, body) => {
+    const explicit = first([
+      '[data-testid="message-sender"]',
+      '[data-testid="sender-name"]',
+      '[data-testid="senderPersona"]',
+      '[data-testid="PersonaDetails"]',
+      '[aria-label^="差出人"]',
+      '[aria-label^="送信者"]',
+      '[aria-label^="From"]',
+      '[aria-label^="Sender"]'
+    ], container);
+    if (explicit) {
+      return cleanSender(explicit.getAttribute("aria-label") || explicit.getAttribute("title") || elementText(explicit));
+    }
+
+    // Outlook frequently renders the sender as an ordinary span/button and
+    // changes its generated class names. Inspect labelled elements in the
+    // header above the message body and score sender-like values instead of
+    // relying only on unstable class names.
+    const bodyTop = body.getBoundingClientRect().top;
+    const ignored = /^(?:宛先|To|Cc|CC|返信|全員に返信|転送|Reply|Forward|その他|More)\b|Copilot/i;
+    const seen = new Set();
+    const candidates = [];
+    for (const element of container.querySelectorAll('[title], [aria-label], button, [role="button"]')) {
+      const rect = element.getBoundingClientRect();
+      if (!rect.width || !rect.height || rect.top >= bodyTop) continue;
+      const raw = element.getAttribute("title") || element.getAttribute("aria-label") || elementText(element);
+      const value = cleanSender(raw);
+      if (!value || value.length > 120 || ignored.test(value) || seen.has(value)) continue;
+      seen.add(value);
+      let score = 0;
+      if (/@/.test(value)) score += 5;
+      if (/\([^)]{2,}\)/.test(value)) score += 4;
+      if (/プロフィール|profile/i.test(raw)) score += 3;
+      if (element.matches('[data-testid*="sender" i], [class*="sender" i]')) score += 5;
+      // The sender is normally the first labelled row in the message header.
+      score += Math.max(0, 3 - Math.floor((rect.top - container.getBoundingClientRect().top) / 30));
+      candidates.push({ value, score, top: rect.top, left: rect.left });
+    }
+    candidates.sort((a, b) => b.score - a.score || a.top - b.top || a.left - b.left);
+    return candidates[0]?.value || "差出人不明";
   };
 
   const readingPane = first([
@@ -57,10 +105,7 @@ export function outlookPrintMode(action, sourceUrl) {
     '[data-testid="message-subject"]', 'h1[title]',
     '[role="heading"][aria-level="2"]', '[role="heading"]'
   ], root)) || document.title.replace(/^メール\s*-\s*/i, "");
-  const senderElement = first([
-    '[data-testid="message-sender"]', '[data-testid="sender-name"]',
-    '[aria-label^="差出人"]', '[aria-label^="From"]'
-  ], container);
+  const sender = findSender(container, body);
   const timeElement = first(['time[datetime]', '[data-testid="message-date"]', '[title*="202"]'], container);
 
   document.getElementById(WRAPPER_ID)?.remove();
@@ -93,7 +138,7 @@ export function outlookPrintMode(action, sourceUrl) {
     ok: true,
     metadata: {
       subject,
-      sender: elementText(senderElement).replace(/^(差出人|From)\s*[:：]?\s*/i, "") || "差出人不明",
+      sender,
       date: timeElement?.getAttribute("datetime") || timeElement?.getAttribute("title") || elementText(timeElement) || new Date().toISOString()
     }
   };
