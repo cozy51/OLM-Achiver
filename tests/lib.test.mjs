@@ -19,4 +19,7 @@ const expression = buildPrintPageExpression("start", 'https://outlook.cloud.micr
 assert.match(expression, /outlookPrintMode/);
 assert.match(expression, /\\"quoted\\"/);
 assert.doesNotMatch(expression, /findSender/);
+assert.match(expression, /findMessageUrl/);
+assert.match(expression, /aria-selected/);
+assert.match(expression, /mail\/inbox\/id/);
 console.log("lib tests passed");

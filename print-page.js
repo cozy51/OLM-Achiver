@@ -38,6 +38,52 @@ export function outlookPrintMode(action, sourceUrl) {
     return null;
   };
 
+  const isMessageUrl = value => {
+    try {
+      const url = new URL(value, location.origin);
+      return url.origin === location.origin && (
+        /\/mail\/deeplink\/read\//i.test(url.pathname) ||
+        /\/mail\/(?:[^/]+\/)?id\/[^/]+/i.test(url.pathname)
+      );
+    } catch {
+      return false;
+    }
+  };
+
+  const findMessageUrl = currentUrl => {
+    if (isMessageUrl(currentUrl)) return new URL(currentUrl, location.origin).href;
+
+    // Outlook may keep the address bar at /mail/ while a message is open in
+    // the reading pane. Prefer links inside the selected/current list row.
+    const selectors = [
+      '[aria-selected="true"] a[href]',
+      '[data-is-selected="true"] a[href]',
+      '[aria-current="true"][href]',
+      'a[aria-current="true"][href]',
+      'a[href*="/deeplink/read/"]',
+      'a[href*="/mail/"][href*="/id/"]'
+    ];
+    for (const selector of selectors) {
+      for (const link of document.querySelectorAll(selector)) {
+        const href = link.href || link.getAttribute("href");
+        if (isMessageUrl(href)) return new URL(href, location.origin).href;
+      }
+    }
+
+    // Some Outlook builds store the selected item id as data rather than an
+    // anchor. Convert that id to Outlook's stable /mail/inbox/id/... route.
+    const selected = document.querySelector('[aria-selected="true"], [data-is-selected="true"]');
+    const itemHolder = selected?.closest('[data-item-id], [data-itemid]') ||
+      selected?.querySelector('[data-item-id], [data-itemid]');
+    const itemId = itemHolder?.getAttribute("data-item-id") || itemHolder?.getAttribute("data-itemid");
+    if (itemId) {
+      let decodedId = itemId;
+      try { decodedId = decodeURIComponent(itemId); } catch { /* already raw */ }
+      return `${location.origin}/mail/inbox/id/${encodeURIComponent(decodedId)}`;
+    }
+    return "";
+  };
+
   const findReceivedDate = (searchRoot, body) => {
     const bodyTop = body.getBoundingClientRect().top;
     const datePattern = /\d{4}\s*(?:年|[-/.])\s*\d{1,2}\s*(?:月|[-/.])\s*\d{1,2}\s*日?(?:\s*\([^)]*\))?\s*T?\s*\d{1,2}\s*[:：]\s*\d{2}/;
@@ -80,6 +126,10 @@ export function outlookPrintMode(action, sourceUrl) {
     '[role="heading"][aria-level="2"]', '[role="heading"]'
   ], root)) || document.title.replace(/^メール\s*-\s*/i, "");
   const receivedDate = findReceivedDate(root, body);
+  const messageUrl = findMessageUrl(sourceUrl);
+  if (!messageUrl) {
+    return { ok: false, error: "開いているメールの個別URLを取得できませんでした。メール一覧で対象メールを選択してから再実行してください。" };
+  }
 
   document.getElementById(WRAPPER_ID)?.remove();
   document.getElementById(STYLE_ID)?.remove();
@@ -88,8 +138,8 @@ export function outlookPrintMode(action, sourceUrl) {
   wrapper.id = WRAPPER_ID;
   const link = document.createElement("a");
   link.className = "olm-source-link";
-  link.href = sourceUrl;
-  link.textContent = `元のメールを Outlook で開く: ${sourceUrl}`;
+  link.href = messageUrl;
+  link.textContent = `元のメールを Outlook で開く: ${messageUrl}`;
   const heading = document.createElement("h1");
   heading.textContent = subject;
   wrapper.append(link, heading, container.cloneNode(true));

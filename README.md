@@ -34,6 +34,10 @@ Outlook の画面構造が変更された場合は、メール本文を検出で
 
 Outlookの画面構造による差出人の取り違えを防ぐため、差出人は自動取得しません。Outlookに表示されている差出人名をコピーしてから拡張機能を開き、`差出人名`欄へ貼り付けてください。
 
+入力例には実在の利用者を特定しない`山田 太郎 (Yamada,T.)`を使用しています。
+
+アドレスバーが`https://outlook.office.com/mail/`のままでも、選択中のメール行から`/mail/inbox/id/...`または`/mail/deeplink/read/...`の個別URLを探してPDFへ埋め込みます。個別URLを特定できない場合、メールトップへのリンクで代用せずエラーを表示します。
+
 ## トラブルシューティング
 
 - `Could not establish connection` や `Cannot access a chrome-extension:// URL of different extension` が表示されていた問題は修正済みです。最新版ではコンテンツスクリプトを注入せず、PDF 出力にも使用する Edge のデバッグ API 経由で印刷用ページを準備します。
