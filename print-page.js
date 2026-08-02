@@ -63,7 +63,7 @@ export function outlookPrintMode(action, sourceUrl) {
     // header above the message body and score sender-like values instead of
     // relying only on unstable class names.
     const bodyTop = body.getBoundingClientRect().top;
-    const ignored = /(?:^(?:(?:宛先|To|Cc|CC|返信|全員に返信|転送|Reply|Forward|その他|More)(?:\s*[:：]|$)|Copilot)|このメッセージを|メッセージを(?:削除|移動|アーカイブ)|削除します|Delete|Archive|Move to|Mark as|Flag|印刷|Print|閉じる|Close|リアクション|Reaction)/i;
+    const ignored = /(?:^(?:(?:宛先|To|Cc|CC|返信|全員に返信|転送|Reply|Forward|その他|More)(?:\s*[:：]|$)|Copilot)|このメッセージ|メッセージを(?:削除|移動|アーカイブ)|(?:削除|返信|転送|移動|保存|閉じ)します|Delete|Archive|Move to|Mark as|Flag|印刷|Print|Close|リアクション|Reaction|(?:Ctrl|Alt|Shift)\s*\+)/i;
     const seen = new Set();
     const candidates = [];
     // When no stable reading-pane selector exists, searchRoot is document.
@@ -80,7 +80,9 @@ export function outlookPrintMode(action, sourceUrl) {
       seen.add(value);
       let score = 0;
       if (/@/.test(value)) score += 5;
-      if (/\([^)]{2,}\)/.test(value)) score += 4;
+      // Outlook displays people as "氏名 (Surname,Initial.)". Do not award
+      // person points to arbitrary parentheses such as keyboard shortcuts.
+      if (/\([^()]*(?:,[^()]*)\)/.test(value)) score += 4;
       if (/プロフィール|profile/i.test(raw)) score += 3;
       if (element.matches('[data-testid*="sender" i], [class*="sender" i]')) score += 5;
       // The sender is normally the first labelled row in the message header.
