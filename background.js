@@ -1,5 +1,7 @@
 import { buildFilename, isSupportedOutlookUrl, selectOutlookTab } from "./lib.js";
 import { buildPrintPageExpression, outlookPrintMode } from "./print-page.js";
+import { collectSenderCandidates } from "./scan-sender.js";
+import { CONFIDENT_SENDER_SCORE, rankSenders } from "./sender.js";
 import { installActionIcon } from "./icon.js";
 
 installActionIcon();
@@ -56,9 +58,37 @@ async function saveWithPrintDialog(tab, senderName) {
   return { filename, printDialog: true };
 }
 
+// Reading the sender only needs the DOM, so it uses chrome.scripting instead of
+// the debugger API: the popup can offer a candidate without Edge showing the
+// "デバッガーが接続しました" bar before the user has asked to save anything.
+async function detectSender() {
+  const tab = await runStep("findTab", findOutlookTab);
+  if (!tab) throw new Error("このウィンドウで Outlook on the web のメールを開いてください。");
+  const results = await runStep("readMail", () => chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: collectSenderCandidates,
+    world: "ISOLATED"
+  }));
+  const scan = results?.[0]?.result;
+  if (!scan?.ok) {
+    throw new Error(`【失敗箇所: ${STEP_LABELS.readMail}】${scan?.error || "Outlook画面から差出人を読み取れませんでした。"}`);
+  }
+  const candidates = rankSenders(scan).slice(0, 3);
+  return {
+    candidates,
+    confident: Boolean(candidates.length && candidates[0].score >= CONFIDENT_SENDER_SCORE)
+  };
+}
+
+const HANDLERS = {
+  "save-current-mail": request => saveCurrentMail(request.senderName),
+  "detect-sender": () => detectSender()
+};
+
 chrome.runtime.onMessage.addListener((request, _sender, respond) => {
-  if (request.type !== "save-current-mail") return;
-  saveCurrentMail(request.senderName).then(result => respond({ ok: true, ...result })).catch(error => respond({ ok: false, error: error.message }));
+  const handler = HANDLERS[request?.type];
+  if (!handler) return;
+  handler(request).then(result => respond({ ok: true, ...result })).catch(error => respond({ ok: false, error: error.message }));
   return true;
 });
 

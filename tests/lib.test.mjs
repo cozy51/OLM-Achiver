@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { buildFilename, isSupportedOutlookUrl, parseMailDate, sanitizeFilenamePart, selectOutlookTab, stripReplyPrefix } from "../lib.js";
 import { buildPrintPageExpression } from "../print-page.js";
+import { collectSenderCandidates } from "../scan-sender.js";
+import { CONFIDENT_SENDER_SCORE, cleanSenderName, isSenderLike, rankSenders } from "../sender.js";
 import { installActionIcon } from "../icon.js";
 
 assert.equal(stripReplyPrefix("RE: Re[2]: FW： 月次報告"), "月次報告");
@@ -30,4 +32,51 @@ assert.match(expression, /toCloudDeepLink/);
 assert.match(expression, /outlook\.cloud\.microsoft/);
 assert.match(expression, /exvsurl=1/);
 assert.equal(typeof installActionIcon, "function");
+
+assert.equal(cleanSenderName("差出人: 山田 太郎 (Yamada,T.)"), "山田 太郎 (Yamada,T.)");
+assert.equal(cleanSenderName("山田 太郎 <yamada@example.com> のプロフィール カードを開く"), "山田 太郎 の");
+assert.equal(cleanSenderName("yamada@example.com"), "");
+assert.equal(isSenderLike("宛先: 鈴木 花子"), false);
+assert.equal(isSenderLike("全員に返信"), false);
+assert.equal(isSenderLike("2026年7月13日 20:41"), false);
+assert.equal(isSenderLike("Ctrl + R"), false);
+assert.equal(isSenderLike("山田 太郎"), true);
+
+// The sender header, the toolbar, the recipient row and the selected mail row
+// as Outlook renders them together. The toolbar and the recipient used to win.
+const scan = {
+  recipientsTop: 160,
+  candidates: [
+    { source: "header", raw: "全員に返信", top: 100, bottom: 120 },
+    { source: "header", raw: "Ctrl + Shift + R", top: 100, bottom: 120 },
+    { source: "header", raw: "山田 太郎 (Yamada,T.) <yamada@example.com>", top: 130, bottom: 150 },
+    { source: "header", raw: "宛先: 鈴木 花子", top: 160, bottom: 180 },
+    { source: "header", raw: "鈴木 花子 (Suzuki,H.)", top: 161, bottom: 181 },
+    { source: "selected-row", raw: "山田 太郎 (Yamada,T.)", order: 0 },
+    { source: "selected-row", raw: "RE: 月次報告", order: 1 }
+  ]
+};
+const ranked = rankSenders(scan);
+assert.equal(ranked[0].name, "山田 太郎 (Yamada,T.)");
+assert.equal(ranked[0].address, "yamada@example.com");
+// Header and list row agreeing is what makes automatic filling trustworthy.
+assert.deepEqual(ranked[0].sources, ["header", "selected-row"]);
+assert.ok(ranked[0].score >= CONFIDENT_SENDER_SCORE);
+assert.ok(!ranked.some(entry => /返信|宛先|Ctrl/.test(entry.name)));
+assert.ok(!ranked.some(entry => entry.name === "RE: 月次報告"));
+// A recipient below the "宛先:" row must never outrank the sender.
+assert.ok(ranked.findIndex(entry => entry.name === "鈴木 花子 (Suzuki,H.)") > 0);
+
+// A lone weak guess stays a suggestion instead of being filled in silently.
+const weak = rankSenders({ recipientsTop: 40, candidates: [{ source: "header", raw: "山田", top: 10, bottom: 30 }] });
+assert.equal(weak[0].name, "山田");
+assert.ok(weak[0].score < CONFIDENT_SENDER_SCORE);
+assert.deepEqual(rankSenders({ candidates: [] }), []);
+
+// The scan runs inside the page, so it must survive serialisation unchanged.
+const scanSource = collectSenderCandidates.toString();
+assert.doesNotMatch(scanSource, /\bimport\b/);
+assert.match(scanSource, /aria-selected/);
+assert.match(scanSource, /宛先/);
+
 console.log("lib tests passed");

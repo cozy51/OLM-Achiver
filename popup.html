@@ -7,7 +7,8 @@
     <div><h1>Outlook Mail Archiver</h1><p>開いているメールを、元メールへのリンク付き PDF として保存します。</p></div>
   </main>
   <label for="sender">差出人名</label>
-  <p class="hint">Outlookに表示されている差出人名をコピーし、ここへ貼り付けてください。</p>
+  <p class="hint" id="hint">差出人を自動検出しています…</p>
+  <div id="candidates" class="chips"></div>
   <div class="sender-row">
     <input id="sender" type="text" placeholder="例: 山田 太郎 (Yamada,T.)" autocomplete="off">
     <button id="paste" type="button" title="クリップボードから貼り付け">貼り付け</button>
