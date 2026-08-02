@@ -66,7 +66,11 @@ export function outlookPrintMode(action, sourceUrl) {
     const ignored = /^(?:(?:宛先|To|Cc|CC|返信|全員に返信|転送|Reply|Forward|その他|More)(?:\s*[:：]|$)|Copilot)/i;
     const seen = new Set();
     const candidates = [];
-    const rootTop = searchRoot.getBoundingClientRect().top;
+    // When no stable reading-pane selector exists, searchRoot is document.
+    // Document does not implement getBoundingClientRect(), so use its root
+    // element for positional scoring.
+    const rootElement = searchRoot.documentElement || searchRoot;
+    const rootTop = rootElement.getBoundingClientRect().top;
     for (const element of searchRoot.querySelectorAll('[title], [aria-label], button, [role="button"], span')) {
       const rect = element.getBoundingClientRect();
       if (!rect.width || !rect.height || rect.top >= bodyTop) continue;

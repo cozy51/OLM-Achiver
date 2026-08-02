@@ -18,4 +18,5 @@ assert.equal(selectOutlookTab([
 const expression = buildPrintPageExpression("start", 'https://outlook.cloud.microsoft/mail/deeplink/read/a?x="quoted"');
 assert.match(expression, /outlookPrintMode/);
 assert.match(expression, /\\"quoted\\"/);
+assert.match(expression, /searchRoot\.documentElement \|\| searchRoot/);
 console.log("lib tests passed");

@@ -31,7 +31,12 @@ async function saveWithPrintDialog(tab) {
     world: "ISOLATED"
   }));
   const prepared = startResults?.[0]?.result;
-  if (!prepared?.ok) throw new Error(`【失敗箇所: メール内容とURLの取得】${prepared?.error || "メールの読み取りに失敗しました。"}`);
+  if (!prepared?.ok) {
+    const detail = prepared?.error || (prepared === undefined
+      ? "Outlook画面の解析結果を取得できませんでした。拡張機能を再読み込みして、メールを開き直してください。"
+      : "メールの読み取りに失敗しました。");
+    throw new Error(`【失敗箇所: メール内容とURLの取得】${detail}`);
+  }
   const filename = buildFilename({
     sender: prepared.metadata.sender,
     subject: prepared.metadata.subject,
