@@ -26,4 +26,5 @@ assert.match(expression, /recipientsTop/);
 assert.match(expression, /\\uE000-\\uF8FF/);
 assert.match(expression, /leaf-like/);
 assert.match(expression, /b\.top - a\.top/);
+assert.match(expression, /rect\.bottom > recipientsTop \+ 1/);
 console.log("lib tests passed");

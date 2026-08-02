@@ -49,7 +49,6 @@ export function outlookPrintMode(action, sourceUrl) {
     const explicit = first([
       '[data-testid="message-sender"]',
       '[data-testid="sender-name"]',
-      '[data-testid="senderPersona"]',
       '[aria-label^="差出人"]',
       '[aria-label^="送信者"]',
       '[aria-label^="From"]',
@@ -90,7 +89,10 @@ export function outlookPrintMode(action, sourceUrl) {
     const recipientsTop = recipientRows[0]?.top ?? bodyTop;
     for (const element of searchRoot.querySelectorAll('[title], [aria-label], button, [role="button"], span')) {
       const rect = element.getBoundingClientRect();
-      if (!rect.width || !rect.height || rect.top >= recipientsTop) continue;
+      // Recipient names on the same row can start a few pixels above the
+      // "宛先:" label because of font baselines. Compare the candidate's
+      // bottom edge, not only its top edge, to reject overlapping recipients.
+      if (!rect.width || !rect.height || rect.bottom > recipientsTop + 1) continue;
       const raw = element.getAttribute("title") || element.getAttribute("aria-label") || elementText(element);
       const value = cleanSender(raw);
       if (!value || value.length > 120 || ignored.test(value) || seen.has(value)) continue;
