@@ -1,0 +1,9 @@
+{
+  "name": "outlook-mail-pdf-archiver",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:icons": "python3 scripts/generate_icons.py",
+    "test": "node tests/lib.test.mjs"
+  }
+}
