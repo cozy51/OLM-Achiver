@@ -50,7 +50,6 @@ export function outlookPrintMode(action, sourceUrl) {
       '[data-testid="message-sender"]',
       '[data-testid="sender-name"]',
       '[data-testid="senderPersona"]',
-      '[data-testid="PersonaDetails"]',
       '[aria-label^="差出人"]',
       '[aria-label^="送信者"]',
       '[aria-label^="From"]',
@@ -76,13 +75,19 @@ export function outlookPrintMode(action, sourceUrl) {
     // In Outlook's expanded header, the sender is on the row immediately
     // above "宛先:" / "To:". Exclude every person at or below that row so a
     // recipient with an email address cannot outscore the actual sender.
-    let recipientsTop = bodyTop;
+    const recipientRows = [];
     for (const label of searchRoot.querySelectorAll('span, div, [aria-label]')) {
       const rect = label.getBoundingClientRect();
       if (!rect.width || !rect.height || rect.top >= bodyTop || rect.height > 60) continue;
       const labelText = label.getAttribute("aria-label") || elementText(label);
-      if (/^(?:宛先|To)\s*[:：]/i.test(labelText)) recipientsTop = Math.min(recipientsTop, rect.top);
+      if (/^(?:宛先|To)\s*[:：]/i.test(labelText)) {
+        recipientRows.push({ top: rect.top, area: rect.width * rect.height, length: labelText.length });
+      }
     }
+    // Prefer a small, leaf-like "宛先:" label. Large parent divs can include
+    // both sender and recipient rows and therefore start above the sender.
+    recipientRows.sort((a, b) => a.length - b.length || a.area - b.area || b.top - a.top);
+    const recipientsTop = recipientRows[0]?.top ?? bodyTop;
     for (const element of searchRoot.querySelectorAll('[title], [aria-label], button, [role="button"], span')) {
       const rect = element.getBoundingClientRect();
       if (!rect.width || !rect.height || rect.top >= recipientsTop) continue;
@@ -103,7 +108,9 @@ export function outlookPrintMode(action, sourceUrl) {
       // header. A fallback candidate must have a strong person-like signal.
       if (score >= 4) candidates.push({ value, score, top: rect.top, left: rect.left });
     }
-    candidates.sort((a, b) => a.top - b.top || b.score - a.score || a.left - b.left);
+    // The actual sender is the closest person immediately above the recipient
+    // row. This is more reliable than global scoring across the whole page.
+    candidates.sort((a, b) => b.top - a.top || b.score - a.score || a.left - b.left);
     return candidates[0]?.value || "差出人不明";
   };
 

@@ -24,4 +24,6 @@ assert.match(expression, /score >= 4/);
 assert.match(expression, /keyboard shortcuts/);
 assert.match(expression, /recipientsTop/);
 assert.match(expression, /\\uE000-\\uF8FF/);
+assert.match(expression, /leaf-like/);
+assert.match(expression, /b\.top - a\.top/);
 console.log("lib tests passed");
