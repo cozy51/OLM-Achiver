@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { buildFilename, isSupportedOutlookUrl, parseMailDate, sanitizeFilenamePart, selectOutlookTab, stripReplyPrefix } from "../lib.js";
 import { buildPrintPageExpression } from "../print-page.js";
+import { installActionIcon } from "../icon.js";
 
 assert.equal(stripReplyPrefix("RE: Re[2]: FW： 月次報告"), "月次報告");
 assert.equal(stripReplyPrefix("返信: 転送：確認"), "確認");
@@ -28,4 +29,5 @@ assert.match(expression, /mail\/inbox\/id/);
 assert.match(expression, /toCloudDeepLink/);
 assert.match(expression, /outlook\.cloud\.microsoft/);
 assert.match(expression, /exvsurl=1/);
+assert.equal(typeof installActionIcon, "function");
 console.log("lib tests passed");

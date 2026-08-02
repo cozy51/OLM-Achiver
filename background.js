@@ -1,5 +1,10 @@
 import { buildFilename, isSupportedOutlookUrl, selectOutlookTab } from "./lib.js";
 import { buildPrintPageExpression, outlookPrintMode } from "./print-page.js";
+import { installActionIcon } from "./icon.js";
+
+installActionIcon();
+chrome.runtime.onInstalled.addListener(installActionIcon);
+chrome.runtime.onStartup.addListener(installActionIcon);
 
 const STEP_LABELS = {
   findTab: "Outlook タブの特定",
