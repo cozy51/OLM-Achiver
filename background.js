@@ -73,10 +73,13 @@ async function detectSender() {
   if (!scan?.ok) {
     throw new Error(`【失敗箇所: ${STEP_LABELS.readMail}】${scan?.error || "Outlook画面から差出人を読み取れませんでした。"}`);
   }
-  const candidates = rankSenders(scan).slice(0, 3);
+  // Only the winner is sent on. Runners-up are still needed while ranking —
+  // agreement between them is what decides confidence — but showing them would
+  // just ask the user to re-judge a decision the ranking already made.
+  const [best] = rankSenders(scan);
   return {
-    candidates,
-    confident: Boolean(candidates.length && candidates[0].score >= CONFIDENT_SENDER_SCORE),
+    sender: best || null,
+    confident: Boolean(best && best.score >= CONFIDENT_SENDER_SCORE),
     // Lets the popup say which part of the page could not be identified
     // instead of only reporting that detection produced nothing.
     diagnostics: {
