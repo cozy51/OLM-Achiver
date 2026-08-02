@@ -10,7 +10,9 @@ export function stripReplyPrefix(subject) {
 
 export function sanitizeFilenamePart(value, fallback) {
   const cleaned = (value || "")
-    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_")
+    // "_" joins the fields of the file name, so a sender written as
+    // "Ito Takeshi / 伊藤剛" must not read as another field boundary.
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, "-")
     .replace(/[. ]+$/g, "")
     .replace(/\s+/g, " ")
     .trim();
