@@ -57,6 +57,16 @@ export function scoreSenderCandidate(candidate, context = {}) {
   if (!name && !address) return null;
   if (name && !isSenderLike(name)) return null;
 
+  // Everything in the header that is not a person still reads like plain text
+  // ("More items", "アプリ"), so wording alone cannot separate them. Require
+  // positive evidence of a person instead of listing what to reject: an
+  // address, Outlook's "氏名 (Surname,I.)" form, or a profile-card element.
+  const personEvidence = Boolean(address) ||
+    /\([^()]*,[^()]*\)/.test(name) ||
+    candidate.persona ||
+    /プロフィール|profile card/i.test(raw);
+  if (candidate.source === "header" && !personEvidence) return null;
+
   let score = 0;
   if (candidate.source === "explicit") score += 8;
   // The mail list row starts with the sender, so only its first field is a
@@ -66,7 +76,7 @@ export function scoreSenderCandidate(candidate, context = {}) {
   if (address) score += 5;
   // Outlook shows colleagues as "山田 太郎 (Yamada,T.)".
   if (/\([^()]*,[^()]*\)/.test(name)) score += 3;
-  if (/プロフィール|profile card/i.test(raw)) score += 3;
+  if (candidate.persona || /プロフィール|profile card/i.test(raw)) score += 3;
   if (candidate.source === "header" &&
       Number.isFinite(context.recipientsTop) && Number.isFinite(candidate.bottom)) {
     // The sender sits on the row directly above "宛先:".

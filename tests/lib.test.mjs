@@ -67,8 +67,27 @@ assert.ok(!ranked.some(entry => entry.name === "RE: 月次報告"));
 // A recipient below the "宛先:" row must never outrank the sender.
 assert.ok(ranked.findIndex(entry => entry.name === "鈴木 花子 (Suzuki,H.)") > 0);
 
+// Toolbar commands read exactly like plain names, so they are only kept out by
+// the missing person evidence. These three were offered as senders in practice.
+const toolbar = rankSenders({
+  recipientsTop: 200,
+  candidates: [
+    { source: "header", raw: "More items", top: 10, bottom: 30 },
+    { source: "header", raw: "アプリ", top: 10, bottom: 30 },
+    { source: "header", raw: "リアクション", top: 10, bottom: 30 }
+  ]
+});
+assert.deepEqual(toolbar, []);
+// The same header text is accepted once Outlook marks it as a profile card.
+assert.equal(rankSenders({
+  candidates: [{ source: "header", raw: "原田 清枝", persona: true, top: 10, bottom: 30 }]
+})[0].name, "原田 清枝");
+
 // A lone weak guess stays a suggestion instead of being filled in silently.
-const weak = rankSenders({ recipientsTop: 40, candidates: [{ source: "header", raw: "山田", top: 10, bottom: 30 }] });
+const weak = rankSenders({
+  recipientsTop: 40,
+  candidates: [{ source: "header", raw: "山田", persona: true, top: 10, bottom: 30 }]
+});
 assert.equal(weak[0].name, "山田");
 assert.ok(weak[0].score < CONFIDENT_SENDER_SCORE);
 assert.deepEqual(rankSenders({ candidates: [] }), []);

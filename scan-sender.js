@@ -32,7 +32,7 @@ export function collectSenderCandidates() {
 
   const bodyTop = body.getBoundingClientRect().top;
   const candidates = [];
-  const push = (source, raw, rect, order) => {
+  const push = (source, raw, rect, order, persona) => {
     if (candidates.length >= MAX_CANDIDATES) return;
     const value = String(raw || "").trim();
     if (!value || value.length > 200) return;
@@ -40,6 +40,7 @@ export function collectSenderCandidates() {
       source,
       raw: value,
       order,
+      persona: Boolean(persona),
       top: rect ? rect.top : null,
       bottom: rect ? rect.bottom : null,
       left: rect ? rect.left : null
@@ -96,13 +97,36 @@ export function collectSenderCandidates() {
   recipientRows.sort((a, b) => a.length - b.length || a.area - b.area || b.top - a.top);
   const recipientsTop = recipientRows.length ? recipientRows[0].top : bodyTop;
 
+  // Application chrome sits above the message too. Excluding it by landmark is
+  // reliable, unlike matching the wording of every command Outlook can show.
+  const CHROME = '[role="banner"], [role="toolbar"], [role="menubar"], [role="navigation"], [role="tablist"], [role="search"], header, nav';
+  const isAppChrome = element => Boolean(element.closest(CHROME));
+  // Outlook opens a profile card from the sender, so a popup owner near the
+  // header is a far better cue than the element's wording.
+  const isPersona = element => Boolean(
+    element.closest('[data-testid*="persona" i], [automation-id*="persona" i], [class*="persona" i]') ||
+    element.getAttribute("aria-haspopup") ||
+    element.closest('a[href^="mailto:"]')
+  );
+
   for (const element of root.querySelectorAll('[title], [aria-label], a[href^="mailto:"], button, [role="button"], span')) {
     const rect = element.getBoundingClientRect();
     if (!rect.width || !rect.height || rect.bottom > recipientsTop + 1) continue;
-    push("header", element.getAttribute("title"), rect, 0);
-    push("header", element.getAttribute("aria-label"), rect, 0);
-    push("header", textOf(element), rect, 0);
+    if (isAppChrome(element)) continue;
+    const persona = isPersona(element);
+    push("header", element.getAttribute("title"), rect, 0, persona);
+    push("header", element.getAttribute("aria-label"), rect, 0, persona);
+    push("header", textOf(element), rect, 0, persona);
   }
 
-  return { ok: true, candidates, recipientsTop, bodyTop };
+  return {
+    ok: true,
+    candidates,
+    recipientsTop,
+    bodyTop,
+    // Reported so a failure can be told apart from an empty result: without a
+    // reading pane or a "宛先:" row the header search area is only a guess.
+    readingPane: Boolean(readingPane),
+    recipientRowFound: recipientRows.length > 0
+  };
 }

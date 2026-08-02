@@ -76,7 +76,14 @@ async function detectSender() {
   const candidates = rankSenders(scan).slice(0, 3);
   return {
     candidates,
-    confident: Boolean(candidates.length && candidates[0].score >= CONFIDENT_SENDER_SCORE)
+    confident: Boolean(candidates.length && candidates[0].score >= CONFIDENT_SENDER_SCORE),
+    // Lets the popup say which part of the page could not be identified
+    // instead of only reporting that detection produced nothing.
+    diagnostics: {
+      readingPane: scan.readingPane,
+      recipientRow: scan.recipientRowFound,
+      scanned: scan.candidates.length
+    }
   };
 }
 
