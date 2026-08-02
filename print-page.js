@@ -40,7 +40,9 @@ export function outlookPrintMode(action, sourceUrl) {
 
   const cleanSender = value => (value || "")
     .replace(/^(?:差出人|送信者|From|Sender)\s*[:：]?\s*/i, "")
+    .replace(/^[\uE000-\uF8FF\s]+/, "")
     .replace(/\s*(?:プロフィールカードを開く|Open profile card).*$/i, "")
+    .replace(/[;；]\s*$/, "")
     .trim();
 
   const findSender = (searchRoot, body) => {
@@ -71,9 +73,19 @@ export function outlookPrintMode(action, sourceUrl) {
     // element for positional scoring.
     const rootElement = searchRoot.documentElement || searchRoot;
     const rootTop = rootElement.getBoundingClientRect().top;
+    // In Outlook's expanded header, the sender is on the row immediately
+    // above "宛先:" / "To:". Exclude every person at or below that row so a
+    // recipient with an email address cannot outscore the actual sender.
+    let recipientsTop = bodyTop;
+    for (const label of searchRoot.querySelectorAll('span, div, [aria-label]')) {
+      const rect = label.getBoundingClientRect();
+      if (!rect.width || !rect.height || rect.top >= bodyTop || rect.height > 60) continue;
+      const labelText = label.getAttribute("aria-label") || elementText(label);
+      if (/^(?:宛先|To)\s*[:：]/i.test(labelText)) recipientsTop = Math.min(recipientsTop, rect.top);
+    }
     for (const element of searchRoot.querySelectorAll('[title], [aria-label], button, [role="button"], span')) {
       const rect = element.getBoundingClientRect();
-      if (!rect.width || !rect.height || rect.top >= bodyTop) continue;
+      if (!rect.width || !rect.height || rect.top >= recipientsTop) continue;
       const raw = element.getAttribute("title") || element.getAttribute("aria-label") || elementText(element);
       const value = cleanSender(raw);
       if (!value || value.length > 120 || ignored.test(value) || seen.has(value)) continue;
@@ -91,7 +103,7 @@ export function outlookPrintMode(action, sourceUrl) {
       // header. A fallback candidate must have a strong person-like signal.
       if (score >= 4) candidates.push({ value, score, top: rect.top, left: rect.left });
     }
-    candidates.sort((a, b) => b.score - a.score || a.top - b.top || a.left - b.left);
+    candidates.sort((a, b) => a.top - b.top || b.score - a.score || a.left - b.left);
     return candidates[0]?.value || "差出人不明";
   };
 

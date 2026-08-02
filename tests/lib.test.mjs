@@ -22,4 +22,6 @@ assert.match(expression, /searchRoot\.documentElement \|\| searchRoot/);
 assert.match(expression, /このメッセージ/);
 assert.match(expression, /score >= 4/);
 assert.match(expression, /keyboard shortcuts/);
+assert.match(expression, /recipientsTop/);
+assert.match(expression, /\\uE000-\\uF8FF/);
 console.log("lib tests passed");
