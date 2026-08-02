@@ -1,6 +1,22 @@
 const button = document.querySelector("#save");
 const status = document.querySelector("#status");
 const senderInput = document.querySelector("#sender");
+const pasteButton = document.querySelector("#paste");
+
+pasteButton.addEventListener("click", async () => {
+  status.className = "";
+  try {
+    const clipboardText = (await navigator.clipboard.readText()).trim();
+    if (!clipboardText) throw new Error("クリップボードに文字がありません。");
+    senderInput.value = clipboardText.replace(/\s+/g, " ");
+    status.textContent = "差出人名を貼り付けました。";
+    senderInput.focus();
+  } catch (error) {
+    status.className = "error";
+    status.textContent = `貼り付けできませんでした: ${error.message || "クリップボードを確認してください。"}`;
+  }
+});
+
 button.addEventListener("click", async () => {
   const senderName = senderInput.value.trim();
   if (!senderName) {
