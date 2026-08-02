@@ -63,7 +63,7 @@ export function outlookPrintMode(action, sourceUrl) {
     // header above the message body and score sender-like values instead of
     // relying only on unstable class names.
     const bodyTop = body.getBoundingClientRect().top;
-    const ignored = /^(?:(?:宛先|To|Cc|CC|返信|全員に返信|転送|Reply|Forward|その他|More)(?:\s*[:：]|$)|Copilot)/i;
+    const ignored = /(?:^(?:(?:宛先|To|Cc|CC|返信|全員に返信|転送|Reply|Forward|その他|More)(?:\s*[:：]|$)|Copilot)|このメッセージを|メッセージを(?:削除|移動|アーカイブ)|削除します|Delete|Archive|Move to|Mark as|Flag|印刷|Print|閉じる|Close|リアクション|Reaction)/i;
     const seen = new Set();
     const candidates = [];
     // When no stable reading-pane selector exists, searchRoot is document.
@@ -85,7 +85,9 @@ export function outlookPrintMode(action, sourceUrl) {
       if (element.matches('[data-testid*="sender" i], [class*="sender" i]')) score += 5;
       // The sender is normally the first labelled row in the message header.
       score += Math.max(0, 3 - Math.floor((rect.top - rootTop) / 30));
-      candidates.push({ value, score, top: rect.top, left: rect.left });
+      // Do not use a generic toolbar label merely because it appears near the
+      // header. A fallback candidate must have a strong person-like signal.
+      if (score >= 4) candidates.push({ value, score, top: rect.top, left: rect.left });
     }
     candidates.sort((a, b) => b.score - a.score || a.top - b.top || a.left - b.left);
     return candidates[0]?.value || "差出人不明";

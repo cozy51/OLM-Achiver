@@ -19,4 +19,6 @@ const expression = buildPrintPageExpression("start", 'https://outlook.cloud.micr
 assert.match(expression, /outlookPrintMode/);
 assert.match(expression, /\\"quoted\\"/);
 assert.match(expression, /searchRoot\.documentElement \|\| searchRoot/);
+assert.match(expression, /このメッセージを/);
+assert.match(expression, /score >= 4/);
 console.log("lib tests passed");
