@@ -4,6 +4,9 @@ import { buildPrintPageExpression } from "../print-page.js";
 
 assert.equal(stripReplyPrefix("RE: Re[2]: FW： 月次報告"), "月次報告");
 assert.equal(stripReplyPrefix("返信: 転送：確認"), "確認");
+assert.equal(stripReplyPrefix("[!]RE: 【依頼】確認"), "【依頼】確認");
+assert.equal(stripReplyPrefix("[!]RE_ FW- 月次報告"), "月次報告");
+assert.equal(stripReplyPrefix("【依頼】RE: 確認"), "【依頼】RE: 確認");
 assert.equal(sanitizeFilenamePart('A/B: C*?'), "A_B_ C__");
 assert.equal(buildFilename({ sender: "山田 太郎", date: new Date("2026-07-16T16:13:00+09:00"), subject: "RE: 進捗/報告" }), "📩_山田 太郎_20260716_0713_進捗_報告.pdf");
 assert.equal(buildFilename({ sender: "渡邉 陽介", date: "2026-07-13 (月) 20:41", subject: "【依頼】確認" }), "📩_渡邉 陽介_20260713_2041_【依頼】確認.pdf");
@@ -22,4 +25,7 @@ assert.doesNotMatch(expression, /findSender/);
 assert.match(expression, /findMessageUrl/);
 assert.match(expression, /aria-selected/);
 assert.match(expression, /mail\/inbox\/id/);
+assert.match(expression, /toCloudDeepLink/);
+assert.match(expression, /outlook\.cloud\.microsoft/);
+assert.match(expression, /exvsurl=1/);
 console.log("lib tests passed");

@@ -50,8 +50,26 @@ export function outlookPrintMode(action, sourceUrl) {
     }
   };
 
+  const toCloudDeepLink = value => {
+    try {
+      const url = new URL(value, location.origin);
+      if (/\/mail\/deeplink\/read\//i.test(url.pathname)) {
+        url.protocol = "https:";
+        url.host = "outlook.cloud.microsoft";
+        return url.href;
+      }
+      const idMatch = url.pathname.match(/\/mail\/(?:[^/]+\/)?id\/([^/]+)/i);
+      if (!idMatch) return "";
+      const itemId = decodeURIComponent(idMatch[1]);
+      const pathId = itemId.replace(/\//g, "-").replace(/\+/g, "_").replace(/=+$/g, "");
+      return `https://outlook.cloud.microsoft/mail/deeplink/read/${pathId}?ItemID=${encodeURIComponent(itemId)}&exvsurl=1`;
+    } catch {
+      return "";
+    }
+  };
+
   const findMessageUrl = currentUrl => {
-    if (isMessageUrl(currentUrl)) return new URL(currentUrl, location.origin).href;
+    if (isMessageUrl(currentUrl)) return toCloudDeepLink(currentUrl);
 
     // Outlook may keep the address bar at /mail/ while a message is open in
     // the reading pane. Prefer links inside the selected/current list row.
@@ -66,7 +84,7 @@ export function outlookPrintMode(action, sourceUrl) {
     for (const selector of selectors) {
       for (const link of document.querySelectorAll(selector)) {
         const href = link.href || link.getAttribute("href");
-        if (isMessageUrl(href)) return new URL(href, location.origin).href;
+        if (isMessageUrl(href)) return toCloudDeepLink(href);
       }
     }
 
@@ -79,7 +97,8 @@ export function outlookPrintMode(action, sourceUrl) {
     if (itemId) {
       let decodedId = itemId;
       try { decodedId = decodeURIComponent(itemId); } catch { /* already raw */ }
-      return `${location.origin}/mail/inbox/id/${encodeURIComponent(decodedId)}`;
+      const pathId = decodedId.replace(/\//g, "-").replace(/\+/g, "_").replace(/=+$/g, "");
+      return `https://outlook.cloud.microsoft/mail/deeplink/read/${pathId}?ItemID=${encodeURIComponent(decodedId)}&exvsurl=1`;
     }
     return "";
   };

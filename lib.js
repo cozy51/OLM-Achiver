@@ -1,6 +1,9 @@
 export function stripReplyPrefix(subject) {
   let value = (subject || "").trim();
-  const prefix = /^(?:(?:re|fw|fwd|返信|転送)\s*(?:\[\d+\])?\s*[:：]\s*)/i;
+  // Outlook can prepend an importance marker before the reply prefix, for
+  // example "[!]RE:". Underscores also appear when a colon has already been
+  // converted for use in a filename.
+  const prefix = /^(?:\[\s*!\s*\]\s*|[!！]\s*)?(?:(?:re|fw|fwd|返信|転送)\s*(?:\[\d+\])?\s*[:：_-]\s*)/i;
   while (prefix.test(value)) value = value.replace(prefix, "").trim();
   return value || "件名なし";
 }
