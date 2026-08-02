@@ -87,6 +87,28 @@ export function outlookPrintMode(action, sourceUrl) {
     return candidates[0]?.value || "差出人不明";
   };
 
+  const findReceivedDate = (searchRoot, body) => {
+    const bodyTop = body.getBoundingClientRect().top;
+    const datePattern = /\d{4}\s*(?:年|[-/.])\s*\d{1,2}\s*(?:月|[-/.])\s*\d{1,2}\s*日?(?:\s*\([^)]*\))?\s*T?\s*\d{1,2}\s*[:：]\s*\d{2}/;
+    const candidates = [];
+    for (const element of searchRoot.querySelectorAll('time, [data-testid*="date" i], [data-testid*="time" i], [title], [aria-label], span')) {
+      const rect = element.getBoundingClientRect();
+      if (!rect.width || !rect.height || rect.top >= bodyTop) continue;
+      const values = [
+        element.getAttribute("datetime"),
+        element.getAttribute("title"),
+        element.getAttribute("aria-label"),
+        elementText(element)
+      ];
+      const value = values.find(candidate => datePattern.test(candidate || ""));
+      if (!value) continue;
+      candidates.push({ value: value.match(datePattern)?.[0] || value, top: rect.top, left: rect.left });
+    }
+    // The received timestamp is normally at the right edge of the top header.
+    candidates.sort((a, b) => a.top - b.top || b.left - a.left);
+    return candidates[0]?.value || "";
+  };
+
   const readingPane = first([
     '[data-app-section="MailReadCompose"]',
     '[aria-label*="閲覧ウィンドウ"]',
@@ -110,7 +132,7 @@ export function outlookPrintMode(action, sourceUrl) {
   // its ancestor. Search the whole reading pane while using the body position
   // as the lower boundary.
   const sender = findSender(root, body);
-  const timeElement = first(['time[datetime]', '[data-testid="message-date"]', '[title*="202"]'], root);
+  const receivedDate = findReceivedDate(root, body);
 
   document.getElementById(WRAPPER_ID)?.remove();
   document.getElementById(STYLE_ID)?.remove();
@@ -143,7 +165,7 @@ export function outlookPrintMode(action, sourceUrl) {
     metadata: {
       subject,
       sender,
-      date: timeElement?.getAttribute("datetime") || timeElement?.getAttribute("title") || elementText(timeElement) || new Date().toISOString()
+      date: receivedDate
     }
   };
 }
