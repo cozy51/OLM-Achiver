@@ -3,6 +3,10 @@ body { width: 350px; margin: 0; padding: 20px; color: #242424; background: linea
 main { display: flex; gap: 14px; align-items: center; }
 .mark { display: grid; place-items: center; flex: 0 0 54px; height: 54px; border-radius: 14px; color: white; background: #c42b1c; font-weight: 700; box-shadow: 0 6px 14px #c42b1c40; }
 h1 { margin: 0 0 5px; font-size: 17px; } p { margin: 0; font-size: 12px; line-height: 1.5; color: #616161; }
+label { display: block; margin-top: 18px; font-size: 13px; font-weight: 600; }
+.hint { margin-top: 4px; }
+input { box-sizing: border-box; width: 100%; margin-top: 7px; padding: 9px 10px; border: 1px solid #8a8886; border-radius: 6px; font: inherit; }
+input:focus { border-color: #0f6cbd; outline: 2px solid #0f6cbd33; }
 button { width: 100%; margin-top: 18px; padding: 11px; border: 0; border-radius: 7px; background: #0f6cbd; color: white; font-size: 14px; font-weight: 600; cursor: pointer; }
 button:hover { background: #115ea3; } button:disabled { opacity: .6; cursor: wait; }
 #status { min-height: 18px; margin-top: 10px; text-align: left; overflow-wrap: anywhere; white-space: pre-wrap; }

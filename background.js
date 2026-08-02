@@ -23,7 +23,7 @@ async function findOutlookTab() {
   return selectOutlookTab(tabs);
 }
 
-async function saveWithPrintDialog(tab) {
+async function saveWithPrintDialog(tab, senderName) {
   const startResults = await runStep("readMail", () => chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: outlookPrintMode,
@@ -38,7 +38,7 @@ async function saveWithPrintDialog(tab) {
     throw new Error(`【失敗箇所: メール内容とURLの取得】${detail}`);
   }
   const filename = buildFilename({
-    sender: prepared.metadata.sender,
+    sender: senderName,
     subject: prepared.metadata.subject,
     date: prepared.metadata.date
   });
@@ -53,11 +53,12 @@ async function saveWithPrintDialog(tab) {
 
 chrome.runtime.onMessage.addListener((request, _sender, respond) => {
   if (request.type !== "save-current-mail") return;
-  saveCurrentMail().then(result => respond({ ok: true, ...result })).catch(error => respond({ ok: false, error: error.message }));
+  saveCurrentMail(request.senderName).then(result => respond({ ok: true, ...result })).catch(error => respond({ ok: false, error: error.message }));
   return true;
 });
 
-async function saveCurrentMail() {
+async function saveCurrentMail(senderName) {
+  if (!String(senderName || "").trim()) throw new Error("差出人名を入力してください。");
   const tab = await runStep("findTab", findOutlookTab);
   if (!tab) {
     throw new Error("このウィンドウで Outlook on the web のメールを開いてください。");
@@ -82,7 +83,7 @@ async function saveCurrentMail() {
         await chrome.debugger.detach(target).catch(() => {});
         attached = false;
       }
-      return saveWithPrintDialog(tab);
+      return saveWithPrintDialog(tab, senderName.trim());
     }
     const prepared = await runStep("readMail", async () => {
       const evaluated = await chrome.debugger.sendCommand(target, "Runtime.evaluate", {
@@ -102,7 +103,7 @@ async function saveCurrentMail() {
       })
     );
     const filename = buildFilename({
-      sender: prepared.metadata.sender,
+      sender: senderName.trim(),
       subject: prepared.metadata.subject,
       date: prepared.metadata.date
     });

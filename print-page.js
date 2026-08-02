@@ -38,84 +38,6 @@ export function outlookPrintMode(action, sourceUrl) {
     return null;
   };
 
-  const cleanSender = value => (value || "")
-    .replace(/^(?:差出人|送信者|From|Sender)\s*[:：]?\s*/i, "")
-    .replace(/^[\uE000-\uF8FF\s]+/, "")
-    .replace(/\s*(?:プロフィールカードを開く|Open profile card).*$/i, "")
-    .replace(/[;；]\s*$/, "")
-    .trim();
-
-  const findSender = (searchRoot, body) => {
-    const explicit = first([
-      '[data-testid="message-sender"]',
-      '[data-testid="sender-name"]',
-      '[aria-label^="差出人"]',
-      '[aria-label^="送信者"]',
-      '[aria-label^="From"]',
-      '[aria-label^="Sender"]'
-    ], searchRoot);
-    if (explicit) {
-      return cleanSender(explicit.getAttribute("aria-label") || explicit.getAttribute("title") || elementText(explicit));
-    }
-
-    // Outlook frequently renders the sender as an ordinary span/button and
-    // changes its generated class names. Inspect labelled elements in the
-    // header above the message body and score sender-like values instead of
-    // relying only on unstable class names.
-    const bodyTop = body.getBoundingClientRect().top;
-    const ignored = /(?:^(?:(?:宛先|To|Cc|CC|返信|全員に返信|転送|Reply|Forward|その他|More)(?:\s*[:：]|$)|Copilot)|このメッセージ|メッセージを(?:削除|移動|アーカイブ)|(?:削除|返信|転送|移動|保存|閉じ)します|Delete|Archive|Move to|Mark as|Flag|印刷|Print|Close|リアクション|Reaction|(?:Ctrl|Alt|Shift)\s*\+)/i;
-    const seen = new Set();
-    const candidates = [];
-    // When no stable reading-pane selector exists, searchRoot is document.
-    // Document does not implement getBoundingClientRect(), so use its root
-    // element for positional scoring.
-    const rootElement = searchRoot.documentElement || searchRoot;
-    const rootTop = rootElement.getBoundingClientRect().top;
-    // In Outlook's expanded header, the sender is on the row immediately
-    // above "宛先:" / "To:". Exclude every person at or below that row so a
-    // recipient with an email address cannot outscore the actual sender.
-    const recipientRows = [];
-    for (const label of searchRoot.querySelectorAll('span, div, [aria-label]')) {
-      const rect = label.getBoundingClientRect();
-      if (!rect.width || !rect.height || rect.top >= bodyTop || rect.height > 60) continue;
-      const labelText = label.getAttribute("aria-label") || elementText(label);
-      if (/^(?:宛先|To)\s*[:：]/i.test(labelText)) {
-        recipientRows.push({ top: rect.top, area: rect.width * rect.height, length: labelText.length });
-      }
-    }
-    // Prefer a small, leaf-like "宛先:" label. Large parent divs can include
-    // both sender and recipient rows and therefore start above the sender.
-    recipientRows.sort((a, b) => a.length - b.length || a.area - b.area || b.top - a.top);
-    const recipientsTop = recipientRows[0]?.top ?? bodyTop;
-    for (const element of searchRoot.querySelectorAll('[title], [aria-label], button, [role="button"], span')) {
-      const rect = element.getBoundingClientRect();
-      // Recipient names on the same row can start a few pixels above the
-      // "宛先:" label because of font baselines. Compare the candidate's
-      // bottom edge, not only its top edge, to reject overlapping recipients.
-      if (!rect.width || !rect.height || rect.bottom > recipientsTop + 1) continue;
-      const raw = element.getAttribute("title") || element.getAttribute("aria-label") || elementText(element);
-      const value = cleanSender(raw);
-      if (!value || value.length > 120 || ignored.test(value) || seen.has(value)) continue;
-      seen.add(value);
-      let score = 0;
-      if (/@/.test(value)) score += 5;
-      // Outlook displays people as "氏名 (Surname,Initial.)". Do not award
-      // person points to arbitrary parentheses such as keyboard shortcuts.
-      if (/\([^()]*(?:,[^()]*)\)/.test(value)) score += 4;
-      if (/プロフィール|profile/i.test(raw)) score += 3;
-      if (element.matches('[data-testid*="sender" i], [class*="sender" i]')) score += 5;
-      // The sender is normally the first labelled row in the message header.
-      score += Math.max(0, 3 - Math.floor((rect.top - rootTop) / 30));
-      // Do not use a generic toolbar label merely because it appears near the
-      // header. A fallback candidate must have a strong person-like signal.
-      if (score >= 4) candidates.push({ value, score, top: rect.top, left: rect.left });
-    }
-    // The actual sender is the closest person immediately above the recipient
-    // row. This is more reliable than global scoring across the whole page.
-    candidates.sort((a, b) => b.top - a.top || b.score - a.score || a.left - b.left);
-    return candidates[0]?.value || "差出人不明";
-  };
-
   const findReceivedDate = (searchRoot, body) => {
     const bodyTop = body.getBoundingClientRect().top;
     const datePattern = /\d{4}\s*(?:年|[-/.])\s*\d{1,2}\s*(?:月|[-/.])\s*\d{1,2}\s*日?(?:\s*\([^)]*\))?\s*T?\s*\d{1,2}\s*[:：]\s*\d{2}/;
@@ -157,10 +79,6 @@ export function outlookPrintMode(action, sourceUrl) {
     '[data-testid="message-subject"]', 'h1[title]',
     '[role="heading"][aria-level="2"]', '[role="heading"]'
   ], root)) || document.title.replace(/^メール\s*-\s*/i, "");
-  // The sender header is often a sibling of the message-body container, not
-  // its ancestor. Search the whole reading pane while using the body position
-  // as the lower boundary.
-  const sender = findSender(root, body);
   const receivedDate = findReceivedDate(root, body);
 
   document.getElementById(WRAPPER_ID)?.remove();
@@ -193,7 +111,6 @@ export function outlookPrintMode(action, sourceUrl) {
     ok: true,
     metadata: {
       subject,
-      sender,
       date: receivedDate
     }
   };

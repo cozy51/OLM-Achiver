@@ -18,13 +18,5 @@ assert.equal(selectOutlookTab([
 const expression = buildPrintPageExpression("start", 'https://outlook.cloud.microsoft/mail/deeplink/read/a?x="quoted"');
 assert.match(expression, /outlookPrintMode/);
 assert.match(expression, /\\"quoted\\"/);
-assert.match(expression, /searchRoot\.documentElement \|\| searchRoot/);
-assert.match(expression, /このメッセージ/);
-assert.match(expression, /score >= 4/);
-assert.match(expression, /keyboard shortcuts/);
-assert.match(expression, /recipientsTop/);
-assert.match(expression, /\\uE000-\\uF8FF/);
-assert.match(expression, /leaf-like/);
-assert.match(expression, /b\.top - a\.top/);
-assert.match(expression, /rect\.bottom > recipientsTop \+ 1/);
+assert.doesNotMatch(expression, /findSender/);
 console.log("lib tests passed");

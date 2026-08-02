@@ -1,11 +1,19 @@
 const button = document.querySelector("#save");
 const status = document.querySelector("#status");
+const senderInput = document.querySelector("#sender");
 button.addEventListener("click", async () => {
+  const senderName = senderInput.value.trim();
+  if (!senderName) {
+    status.className = "error";
+    status.textContent = "Outlookから差出人名をコピーして貼り付けてください。";
+    senderInput.focus();
+    return;
+  }
   button.disabled = true;
   status.className = "";
   status.textContent = "PDF を作成しています…";
   try {
-    const result = await chrome.runtime.sendMessage({ type: "save-current-mail" });
+    const result = await chrome.runtime.sendMessage({ type: "save-current-mail", senderName });
     if (!result.ok) throw new Error(result.error || "保存に失敗しました。");
     status.textContent = result.printDialog
       ? `Edgeの印刷画面を開きました。「プリンター」で「PDFとして保存」を選んでください。\n推奨ファイル名: ${result.filename}`
