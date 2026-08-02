@@ -36,7 +36,15 @@ async function detectSender() {
     const result = await chrome.runtime.sendMessage({ type: "detect-sender" });
     if (!result?.ok) throw new Error(result?.error || "差出人を取得できませんでした。");
     const candidates = result.candidates || [];
-    if (!candidates.length) throw new Error("差出人の候補が見つかりませんでした。");
+    if (!candidates.length) {
+      const reasons = [];
+      if (!result.diagnostics?.readingPane) reasons.push("閲覧ウィンドウを特定できません");
+      if (!result.diagnostics?.recipientRow) reasons.push("宛先行を特定できません");
+      hint.textContent = reasons.length
+        ? `差出人を検出できません(${reasons.join("・")})。${MANUAL_HINT}`
+        : MANUAL_HINT;
+      return;
+    }
     const firstChip = showCandidates(candidates);
     if (result.confident && !senderInput.value) {
       selectCandidate(candidates[0].name, firstChip);

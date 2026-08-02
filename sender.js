@@ -14,6 +14,9 @@ const NOT_A_PERSON = new RegExp([
   "|RE|FW|FWD)(?:\\s*[:：]|\\s*$)",
   "|(?:Ctrl|Alt|Shift)\\s*\\+|^\\d+$|件のメッセージ|^\\s*$"
 ].join(""), "i");
+// Outlook writes colleagues as "山田 太郎 (Yamada,T.)"; the Japanese UI uses
+// full-width brackets and commas for the same form.
+const NAMED_PERSON = /[(（][^()（）]*[,，][^()（）]*[)）]/;
 // Below this a candidate is a stray label rather than a plausible person, so it
 // is not even offered as a choice.
 const MIN_SENDER_SCORE = 3;
@@ -29,10 +32,13 @@ export function cleanSenderName(value) {
   return String(value || "")
     // Outlook draws its icons with private-use glyphs inside the same label.
     .replace(/[\uE000-\uF8FF]/g, " ")
-    .replace(/^\s*(?:差出人|送信者|From|Sender)\s*[:：]?\s*/i, "")
+    .replace(/^\s*(?:差出人|送信者|送信元|発信者|発信元|From|Sender)\s*[:：]?\s*/i, "")
     .replace(/[<（(]\s*[A-Za-z0-9._%+'-]+@[A-Za-z0-9.-]+\s*[>）)]?/g, " ")
     .replace(/[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g, " ")
     .replace(/\s*(?:プロフィール\s?カードを開く|さんのプロフィール|Open profile card|profile card)\S*/gi, " ")
+    // A persona label appends further fields after the display name, as in
+    // "原田 清枝（Harada,K.）, 送信済み". The name ends at its own bracket.
+    .replace(/^([^()（）]*[(（][^()（）]*[)）])\s*[,、].*$/, "$1")
     .replace(/[;；,、]+\s*$/, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -57,6 +63,16 @@ export function scoreSenderCandidate(candidate, context = {}) {
   if (!name && !address) return null;
   if (name && !isSenderLike(name)) return null;
 
+  // Everything in the header that is not a person still reads like plain text
+  // ("More items", "アプリ"), so wording alone cannot separate them. Require
+  // positive evidence of a person instead of listing what to reject: an
+  // address, Outlook's "氏名 (Surname,I.)" form, or a profile-card element.
+  const personEvidence = Boolean(address) ||
+    NAMED_PERSON.test(name) ||
+    candidate.persona ||
+    /プロフィール|profile card/i.test(raw);
+  if (candidate.source === "header" && !personEvidence) return null;
+
   let score = 0;
   if (candidate.source === "explicit") score += 8;
   // The mail list row starts with the sender, so only its first field is a
@@ -65,8 +81,8 @@ export function scoreSenderCandidate(candidate, context = {}) {
   if (candidate.source === "header") score += 2;
   if (address) score += 5;
   // Outlook shows colleagues as "山田 太郎 (Yamada,T.)".
-  if (/\([^()]*,[^()]*\)/.test(name)) score += 3;
-  if (/プロフィール|profile card/i.test(raw)) score += 3;
+  if (NAMED_PERSON.test(name)) score += 3;
+  if (candidate.persona || /プロフィール|profile card/i.test(raw)) score += 3;
   if (candidate.source === "header" &&
       Number.isFinite(context.recipientsTop) && Number.isFinite(candidate.bottom)) {
     // The sender sits on the row directly above "宛先:".
