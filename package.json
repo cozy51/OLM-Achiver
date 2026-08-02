@@ -1,0 +1,6 @@
+{
+  "name": "outlook-mail-pdf-archiver",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node tests/lib.test.mjs" }
+}
