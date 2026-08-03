@@ -66,7 +66,7 @@ button.addEventListener("click", async () => {
     const saved = result.printDialog
       ? `Edgeの印刷画面を開きました。「プリンター」で「PDFとして保存」を選んでください。\n推奨ファイル名: ${result.filename}`
       : `保存しました: ${result.filename}`;
-    const attachments = describeAttachments(result.attachments);
+    const attachments = describeAttachments(result.attachments, { wells: result.attachmentWells });
     status.textContent = attachments ? `${saved}\n${attachments}` : saved;
   } catch (error) {
     status.className = "error";

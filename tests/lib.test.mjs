@@ -48,6 +48,11 @@ assert.match(withAttachments, /sharepoint/);
 
 assert.equal(describeAttachments([]), "");
 assert.equal(describeAttachments(undefined), "");
+// A message with nothing attached says nothing; a well that was found but
+// could not be read must not look the same to the user.
+assert.equal(describeAttachments([], { wells: 0 }), "");
+assert.match(describeAttachments([], { wells: 1 }), /読み取れませんでした/);
+assert.match(describeAttachments([{ name: "a.pdf" }], { wells: 1 }), /^添付ファイル 1件/);
 assert.equal(
   describeAttachments([{ name: "見積書.pdf" }, { name: "写真.jpg" }]),
   "添付ファイル 2件の名前とリンクをPDFに記載しました: 見積書.pdf / 写真.jpg"
@@ -142,6 +147,23 @@ assert.doesNotMatch(attachmentScanSource, /\bimport\b/);
 // Outlook ids the well "MSG_<item>_ATTACHMENTS"; the label is the fallback.
 assert.match(attachmentScanSource, /_ATTACHMENTS/);
 assert.match(attachmentScanSource, /添付ファイル/);
+// An image attachment shows a thumbnail and no name, so the name has to be
+// looked for everywhere the accessibility tree can carry it.
+assert.match(attachmentScanSource, /aria-labelledby/);
+assert.match(attachmentScanSource, /"alt"/);
+assert.match(attachmentScanSource, /"download"/);
+// The well is looked for in the whole document when the pane holds none.
+assert.match(attachmentScanSource, /findWells\(document\)/);
+
+// A name reached only through an image's alt text or a hidden label still ends
+// up in the list; the href of a cloud tile must never become the name.
+assert.deepEqual(listAttachments({
+  pageUrl: "https://outlook.cloud.microsoft/mail/x",
+  entries: [
+    { labels: ["画像添付ファイル"], href: "" },
+    { labels: ["写真.jpg"], href: "https://contoso.sharepoint.com/写真.jpg" }
+  ]
+}), [{ name: "写真.jpg", url: "https://contoso.sharepoint.com/写真.jpg" }]);
 
 // Outlook writes a tile as one label joining category, file name and size.
 assert.equal(attachmentNameFrom("画像添付ファイル、写真.jpg、6 MB"), "写真.jpg");
