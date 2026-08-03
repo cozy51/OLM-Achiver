@@ -160,14 +160,10 @@ export function outlookPrintMode(action, sourceUrl, attachments) {
 
   // The tiles in the body show the file names truncated and carry no URL, so
   // the names are listed once more as text that survives in the PDF. A file
-  // without an address of its own falls back to the message it is attached to.
+  // stored in the message has no address of its own, and the link at the top of
+  // the page already opens that message, so those rows stay plain names.
   const files = (Array.isArray(attachments) ? attachments : [])
-    .map(item => ({
-      name: String(item?.name || "").trim(),
-      url: item?.url || messageUrl,
-      // Kept apart so a link that only reopens the mail is not read as the file.
-      direct: Boolean(item?.url)
-    }))
+    .map(item => ({ name: String(item?.name || "").trim(), url: item?.url || "" }))
     .filter(item => item.name);
 
   globalThis.__olmPreviousTitle = document.title;
@@ -188,15 +184,18 @@ export function outlookPrintMode(action, sourceUrl, attachments) {
     const list = document.createElement("ol");
     for (const item of files) {
       const row = document.createElement("li");
-      const anchor = document.createElement("a");
-      anchor.href = item.url;
-      anchor.textContent = item.name;
-      row.append(anchor);
-      const address = document.createElement("span");
-      address.className = "olm-attachment-url";
-      // Printed on paper a link is lost, so the destination is written out.
-      address.textContent = item.direct ? item.url : "（このファイル固有のURLはありません。リンク先は元のメールです）";
-      row.append(address);
+      if (item.url) {
+        const anchor = document.createElement("a");
+        anchor.href = item.url;
+        anchor.textContent = item.name;
+        const address = document.createElement("span");
+        address.className = "olm-attachment-url";
+        // Printed on paper a link is lost, so the destination is written out.
+        address.textContent = item.url;
+        row.append(anchor, address);
+      } else {
+        row.textContent = item.name;
+      }
       list.append(row);
     }
     section.append(title, list);

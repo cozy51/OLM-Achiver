@@ -36,6 +36,9 @@ assert.match(expression, /toCloudDeepLink/);
 assert.match(expression, /outlook\.cloud\.microsoft/);
 assert.match(expression, /exvsurl=1/);
 assert.match(expression, /olm-attachments/);
+// A file stored in the message has no address of its own, and the link at the
+// top of the page is already that address, so the row is the name alone.
+assert.doesNotMatch(expression, /固有のURL/);
 assert.equal(typeof installActionIcon, "function");
 
 // The attachment list travels as an argument, so the page renders exactly what
