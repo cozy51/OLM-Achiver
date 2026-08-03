@@ -20,25 +20,38 @@ const FIELDS = /[、]\s*/;
 // What Outlook can put in front of the name. English words are not stripped —
 // "Image" and "Open" begin real file names as readily as they label a tile.
 const PREFIX = /^(?:(?:画像)?添付ファイル|Attachment)\s*[:：]?\s*|^(?:開く|プレビュー|ダウンロード|選択)\s+/i;
+// An Outlook item — a mail attached to a mail — carries a subject where a file
+// carries a name, so there is no extension to cut at. Outlook writes the kind on
+// the tile instead, and that is what makes the subject safe to read as a name:
+// without it, any wording in the well would qualify.
+const ITEM_KIND = /Outlook\s*(?:アイテム|item)|メール\s*メッセージ|mail\s*message/i;
+// The commands Outlook draws inside a tile. They are never the attachment. Only
+// a label that does not name its kind is judged this way — a subject may well
+// contain "保存", and the kind already proves such a label is the attachment.
+const TILE_COMMAND = /開く|ダウンロード|保存|プレビュー|削除|選択|その他|オプション|メニュー|^(?:Open|Download|Save|Preview|Delete|Select|More|Options|Menu)\b/i;
 // A message with more tiles than this is not what the list is for; the cap only
 // stops a mislabelled page from filling the PDF.
 const MAX_ATTACHMENTS = 40;
 
+const clean = value => String(value || "")
+  // Outlook draws the file-type icon with a private-use glyph in the label.
+  .replace(/[\uE000-\uF8FF]/g, " ")
+  .replace(/\s+/g, " ")
+  .trim();
+
+const usableName = name =>
+  Boolean(name) && name.length <= 120 && !FILE_SIZE.test(name) && !/[\\/]/.test(name);
+
+
 export function attachmentNameFrom(value) {
-  const text = String(value || "")
-    // Outlook draws the file-type icon with a private-use glyph in the label.
-    .replace(/[\uE000-\uF8FF]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const text = clean(value);
   for (const field of text.split(FIELDS)) {
     for (const match of field.matchAll(EXTENSION)) {
       if (!HAS_LETTER.test(match[0])) continue;
       // Everything before the extension belongs to the name: it can hold spaces
       // and brackets, as "Image (1).jpg" does, so it cannot be tokenised.
       const name = field.slice(0, match.index + match[0].length).replace(PREFIX, "").trim();
-      if (!name || name.length > 120 || FILE_SIZE.test(name)) continue;
-      // A file name carries no path separator; a URL in a data attribute does.
-      if (/[\\/]/.test(name)) continue;
+      if (!usableName(name)) continue;
       // An extension with nothing in front of it is not a file name.
       if (name.length <= match[0].length) continue;
       return name;
@@ -54,25 +67,78 @@ export function attachmentLink(href, pageUrl) {
   return value.split("#")[0] === String(pageUrl || "").split("#")[0] ? "" : value;
 }
 
+// The subject of a mail attached to a mail. It is only ever read from a label
+// that names the kind, so the boundary is the kind itself: what precedes it is
+// the subject, what follows is the size and the commands.
+export function attachmentSubjectFrom(value) {
+  const text = clean(value);
+  const kind = text.match(ITEM_KIND);
+  if (!kind) return "";
+  const subject = text.slice(0, kind.index).replace(/[、,]\s*$/, "").trim();
+  return usableName(subject) ? subject : "";
+}
+
+// Taken from a real read view: an Outlook item's tile is labelled
+// "【79584】FST PBN CST LP & CST見学報告 開く 250 KB" — the kind is drawn beside
+// the tile but kept out of its label, so the command is the only boundary left.
+// The same shape carries the file name of an ordinary attachment.
+const COMMAND_TOKEN = /\s(?:開く|プレビュー|ダウンロード|保存|削除|選択|その他|オプション|メニュー|Open|Preview|Download|Save|Delete|Select|More|Options|Menu)(?=\s|$)/;
+
+export function attachmentNameBeforeCommand(value) {
+  const text = clean(value);
+  const command = text.match(COMMAND_TOKEN);
+  if (!command) return "";
+  const name = text.slice(0, command.index).trim();
+  return usableName(name) && /[\p{L}\p{N}]/u.test(name) ? name : "";
+}
+
+// A last resort for a tile whose label holds the name alone, with nothing in it
+// to mark where the name ends because there is nothing after it.
+function looseName(value) {
+  const text = clean(value);
+  if (!usableName(text) || ITEM_KIND.test(text) || TILE_COMMAND.test(text)) return "";
+  return /[\p{L}\p{N}]/u.test(text) ? text : "";
+}
+
+function nameOfTile(entries) {
+  const labelsOf = only => entries
+    .filter(entry => (only ? entry.own : true))
+    .flatMap(entry => entry.labels || []);
+  // A file name is the strongest evidence and needs no help from the tile.
+  const named = labelsOf(false).map(attachmentNameFrom).find(Boolean);
+  if (named) return named;
+  const subject = labelsOf(false).map(attachmentSubjectFrom).find(Boolean);
+  if (subject) return subject;
+  // Past this point the name has no mark of its own, so the tile has to vouch
+  // for it: a [role="option"] in the attachment well is an attachment, and the
+  // only question left is where its label stops naming it. Wording loose in the
+  // well — the summary line, the buttons under it — vouches for nothing.
+  if (!entries.some(entry => entry.inTile)) return "";
+  // The tile's own label names the attachment; its parts include buttons.
+  return labelsOf(true).map(attachmentNameBeforeCommand).find(Boolean) ||
+    labelsOf(true).map(looseName).find(Boolean) ||
+    labelsOf(false).map(looseName).find(Boolean) || "";
+}
+
 export function listAttachments(scan) {
-  const found = new Map();
+  // One tile is one attachment. Grouping by tile rather than by name keeps the
+  // label and the image inside a tile from counting twice, and still lists two
+  // tiles that happen to carry the same file name as the two files they are.
+  const tiles = new Map();
   for (const entry of scan?.entries || []) {
-    const name = (entry?.labels || []).map(attachmentNameFrom).find(Boolean);
-    if (!name) continue;
-    const url = attachmentLink(entry.href, scan?.pageUrl);
-    // One tile is one file. Grouping by tile rather than by name keeps the
-    // label and the image inside a tile from counting twice, and still lists
-    // two tiles that happen to carry the same file name as the two files they
-    // are. An entry outside any tile falls back to its name.
-    const key = Number.isInteger(entry.tile) ? `tile:${entry.tile}` : `name:${name}`;
-    const existing = found.get(key);
-    if (existing) {
-      // The name usually sits on an outer element and the link on an inner one.
-      if (!existing.url && url) existing.url = url;
-      continue;
-    }
-    if (found.size >= MAX_ATTACHMENTS) break;
-    found.set(key, { name, url });
+    const key = Number.isInteger(entry?.tile) ? `tile:${entry.tile}` : `entry:${tiles.size}`;
+    if (!tiles.has(key)) tiles.set(key, []);
+    tiles.get(key).push(entry);
   }
-  return [...found.values()];
+
+  const found = [];
+  for (const entries of tiles.values()) {
+    if (found.length >= MAX_ATTACHMENTS) break;
+    const name = nameOfTile(entries);
+    if (!name) continue;
+    // The name usually sits on an outer element and the link on an inner one.
+    const url = entries.map(entry => attachmentLink(entry.href, scan?.pageUrl)).find(Boolean) || "";
+    found.push({ name, url });
+  }
+  return found;
 }
