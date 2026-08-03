@@ -154,18 +154,25 @@ assert.match(attachmentScanSource, /"alt"/);
 assert.match(attachmentScanSource, /"download"/);
 // The well is looked for in the whole document when the pane holds none.
 assert.match(attachmentScanSource, /findWells\(document\)/);
+// A tile resolves to its [role="option"] before any inner draggable preview,
+// so one attachment is reported once.
+assert.match(attachmentScanSource, /closest\('\[role="option"\], \[role="listitem"\]'\)/);
 
 // A name reached only through an image's alt text or a hidden label still ends
 // up in the list; the href of a cloud tile must never become the name.
 assert.deepEqual(listAttachments({
   pageUrl: "https://outlook.cloud.microsoft/mail/x",
   entries: [
-    { labels: ["画像添付ファイル"], href: "" },
-    { labels: ["写真.jpg"], href: "https://contoso.sharepoint.com/写真.jpg" }
+    { tile: 0, labels: ["画像添付ファイル"], href: "" },
+    { tile: 1, labels: ["写真.jpg"], href: "https://contoso.sharepoint.com/写真.jpg" }
   ]
 }), [{ name: "写真.jpg", url: "https://contoso.sharepoint.com/写真.jpg" }]);
 
-// Outlook writes a tile as one label joining category, file name and size.
+// Taken from a real outlook.cloud.microsoft read view: the tile's accessible
+// name puts the file name first and joins the rest with spaces, so nothing but
+// the extension marks where the name ends.
+assert.equal(attachmentNameFrom("Image (1).jpg 開く 6 MB"), "Image (1).jpg");
+assert.equal(attachmentNameFrom("見積書.xlsx 開く 2 MB"), "見積書.xlsx");
 assert.equal(attachmentNameFrom("画像添付ファイル、写真.jpg、6 MB"), "写真.jpg");
 assert.equal(attachmentNameFrom("見積書.xlsx (2 MB)"), "見積書.xlsx");
 assert.equal(attachmentNameFrom("添付ファイル: 議事録.docx"), "議事録.docx");
@@ -174,24 +181,51 @@ assert.equal(attachmentNameFrom("報告書, 最終版.pdf"), "報告書, 最終�
 // Neither the well's own summary line nor its commands name a file.
 assert.equal(attachmentNameFrom("添付ファイル 2 個 (6 MB)"), "");
 assert.equal(attachmentNameFrom("すべてダウンロード"), "");
-assert.equal(attachmentNameFrom("6.5MB"), "");
 assert.equal(attachmentNameFrom("すべてを OneDrive - 村田機械株式会社 に保存"), "");
 assert.equal(attachmentNameFrom(""), "");
+// A size and a version number both look like a name plus an extension.
+assert.equal(attachmentNameFrom("6.5MB"), "");
+assert.equal(attachmentNameFrom("1.5 MB"), "");
+// A URL in a data attribute is not a file name, however it ends.
+assert.equal(attachmentNameFrom("https://contoso.sharepoint.com/thumb.png"), "");
 
 // Only a real file address counts; an anchor back to the open message does not.
 assert.equal(attachmentLink("https://contoso.sharepoint.com/a.pdf", "https://outlook.cloud.microsoft/mail/x"), "https://contoso.sharepoint.com/a.pdf");
 assert.equal(attachmentLink("https://outlook.cloud.microsoft/mail/x#top", "https://outlook.cloud.microsoft/mail/x"), "");
 assert.equal(attachmentLink("javascript:void(0)", "https://outlook.cloud.microsoft/mail/x"), "");
 
+// The two image tiles of a real message: the name is on the [role="option"] and
+// the preview inside it repeats it, which is one file, not two.
+assert.deepEqual(listAttachments({
+  pageUrl: "https://outlook.cloud.microsoft/mail/x",
+  entries: [
+    { tile: 0, labels: ["画像添付ファイル"], href: "" },
+    { tile: 1, labels: ["Image (1).jpg 開く 6 MB"], href: "" },
+    { tile: 1, labels: ["Image (1).jpg"], href: "" },
+    { tile: 2, labels: ["Image (2).jpg 開く 6 MB"], href: "" },
+    { tile: 3, labels: ["すべてダウンロード"], href: "" }
+  ]
+}), [
+  { name: "Image (1).jpg", url: "" },
+  { name: "Image (2).jpg", url: "" }
+]);
+// Two files really can share a name, so tiles are what separate them.
+assert.equal(listAttachments({
+  entries: [
+    { tile: 0, labels: ["IMG_0001.jpg"], href: "" },
+    { tile: 1, labels: ["IMG_0001.jpg"], href: "" }
+  ]
+}).length, 2);
+
 const attachmentScan = {
   pageUrl: "https://outlook.cloud.microsoft/mail/x",
   entries: [
-    { labels: ["添付ファイル 2 個 (6 MB)"], href: "" },
+    { tile: 0, labels: ["添付ファイル 2 個 (6 MB)"], href: "" },
     // The name sits on the tile and the link on an element inside it.
-    { labels: ["画像添付ファイル、写真.jpg、6 MB"], href: "" },
-    { labels: ["写真.jpg"], href: "https://contoso.sharepoint.com/写真.jpg" },
-    { labels: ["", "見積書.xlsx"], href: "" },
-    { labels: ["すべてダウンロード"], href: "" }
+    { tile: 1, labels: ["画像添付ファイル、写真.jpg、6 MB"], href: "" },
+    { tile: 1, labels: ["写真.jpg"], href: "https://contoso.sharepoint.com/写真.jpg" },
+    { tile: 2, labels: ["", "見積書.xlsx"], href: "" },
+    { tile: 3, labels: ["すべてダウンロード"], href: "" }
   ]
 };
 assert.deepEqual(listAttachments(attachmentScan), [

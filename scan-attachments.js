@@ -53,6 +53,18 @@ export function collectAttachmentTiles() {
     .filter(Boolean)
     .map(id => document.getElementById(id)?.textContent?.trim() || "");
 
+  // Outlook draws each attachment as one [role="option"], with the file name on
+  // the option and the preview on a [draggable="true"] child. Resolving to the
+  // option first — rather than to whichever ancestor happens to be nearest —
+  // keeps a tile and its own contents from being counted as two files.
+  const tiles = new Map();
+  const tileOf = element => {
+    const tile = element.closest('[role="option"], [role="listitem"]') ||
+      element.closest('a[href], [draggable="true"]') || element;
+    if (!tiles.has(tile)) tiles.set(tile, tiles.size);
+    return { tile, index: tiles.get(tile) };
+  };
+
   const entries = [];
   for (const well of wells) {
     for (const element of [well, ...well.querySelectorAll("*")]) {
@@ -68,11 +80,11 @@ export function collectAttachmentTiles() {
         ...[...element.attributes].filter(item => item.name.startsWith("data-")).map(item => item.value)
       ].filter(label => label && label.length <= MAX_LABEL);
       if (!labels.length) continue;
+      const { tile, index } = tileOf(element);
       // A cloud attachment is a real link; a file stored in the message is a
       // tile that downloads through script, so it has no URL of its own.
-      const tile = element.closest('a[href], [role="option"], [role="listitem"], [draggable="true"]') || element;
       const anchor = tile.matches("a[href]") ? tile : tile.querySelector("a[href]");
-      entries.push({ labels, href: anchor?.href || "" });
+      entries.push({ tile: index, labels, href: anchor?.href || "" });
     }
   }
   // Reported so "no attachments" can be told apart from "the well was found but
