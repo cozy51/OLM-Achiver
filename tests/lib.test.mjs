@@ -19,6 +19,13 @@ assert.equal(buildFilename({ sender: "山田 太郎", date: new Date("2026-07-16
 assert.equal(buildFilename({ sender: "渡邉 陽介", date: "2026-07-13 (月) 20:41", subject: "【依頼】確認" }), "📩_渡邉 陽介_20260713_2041_【依頼】確認.pdf");
 assert.equal(parseMailDate("2026年7月13日 20:41").getMinutes(), 41);
 assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認" }), "📩_山田_受信日不明_時刻不明_確認.pdf");
+// The clip says the mail carried files, so a folder listing shows it without
+// the PDF being opened. An empty list is a mail with nothing attached.
+assert.equal(
+  buildFilename({ sender: "犬飼 一富", date: "2026-07-13 (月) 11:49", subject: "RE: HU300 期末棚卸について", attachments: [{ name: "S36C-0i26071311400.pdf" }] }),
+  "📩📎_犬飼 一富_20260713_1149_HU300 期末棚卸について.pdf"
+);
+assert.match(buildFilename({ sender: "山田", date: "", subject: "確認", attachments: [] }), /^📩_/);
 assert.equal(isSupportedOutlookUrl("https://outlook.cloud.microsoft/mail/deeplink/read/AAkALgAAAA?ItemID=AAkALg%2FA&exvsurl=1"), true);
 assert.equal(isSupportedOutlookUrl("https://outlook.cloud.microsoft.evil.example/mail"), false);
 assert.equal(selectOutlookTab([

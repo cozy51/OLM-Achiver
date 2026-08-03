@@ -19,7 +19,7 @@ export function sanitizeFilenamePart(value, fallback) {
   return (cleaned || fallback).slice(0, 80);
 }
 
-export function buildFilename({ sender, date, subject }) {
+export function buildFilename({ sender, date, subject, attachments }) {
   const instant = parseMailDate(date);
   const parts = instant ? new Intl.DateTimeFormat("ja-JP", {
       year: "numeric", month: "2-digit", day: "2-digit",
@@ -27,7 +27,12 @@ export function buildFilename({ sender, date, subject }) {
     }).formatToParts(instant).reduce((all, item) => ({ ...all, [item.type]: item.value }), {}) : null;
   const day = parts ? `${parts.year}${parts.month}${parts.day}` : "受信日不明";
   const time = parts ? `${parts.hour}${parts.minute}` : "時刻不明";
-  return `📩_${sanitizeFilenamePart(sender, "差出人不明")}_${day}_${time}_${sanitizeFilenamePart(stripReplyPrefix(subject), "件名なし")}.pdf`;
+  // The clip marks a mail that carried files, so a folder listing answers "was
+  // anything attached to this one" without opening the PDF. It reflects what
+  // the list in the PDF holds: a mail whose attachment area could not be read
+  // is not marked, and the popup says so at save time.
+  const mark = (attachments || []).length ? "📩📎" : "📩";
+  return `${mark}_${sanitizeFilenamePart(sender, "差出人不明")}_${day}_${time}_${sanitizeFilenamePart(stripReplyPrefix(subject), "件名なし")}.pdf`;
 }
 
 // The PDF carries the full attachment list, so the popup only has to make the
