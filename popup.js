@@ -1,3 +1,5 @@
+import { describeAttachments } from "./lib.js";
+
 const button = document.querySelector("#save");
 const status = document.querySelector("#status");
 const senderInput = document.querySelector("#sender");
@@ -61,9 +63,11 @@ button.addEventListener("click", async () => {
   try {
     const result = await chrome.runtime.sendMessage({ type: "save-current-mail", senderName });
     if (!result.ok) throw new Error(result.error || "保存に失敗しました。");
-    status.textContent = result.printDialog
+    const saved = result.printDialog
       ? `Edgeの印刷画面を開きました。「プリンター」で「PDFとして保存」を選んでください。\n推奨ファイル名: ${result.filename}`
       : `保存しました: ${result.filename}`;
+    const attachments = describeAttachments(result.attachments);
+    status.textContent = attachments ? `${saved}\n${attachments}` : saved;
   } catch (error) {
     status.className = "error";
     const message = error.message || "保存に失敗しました。";

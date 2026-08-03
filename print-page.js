@@ -1,4 +1,7 @@
-export function outlookPrintMode(action, sourceUrl) {
+// attachments is the list read by scan-attachments.js and named by
+// attachments.js: [{ name, url }], where an empty url means the file has no
+// address of its own and is only reachable through the message.
+export function outlookPrintMode(action, sourceUrl, attachments) {
   const WRAPPER_ID = "olm-pdf-document";
   const STYLE_ID = "olm-pdf-style";
 
@@ -125,6 +128,11 @@ export function outlookPrintMode(action, sourceUrl) {
     return candidates[0]?.value || "";
   };
 
+  // Removed before the search so the copy of the message inside a wrapper left
+  // behind by an interrupted run cannot be mistaken for the live message.
+  document.getElementById(WRAPPER_ID)?.remove();
+  document.getElementById(STYLE_ID)?.remove();
+
   const readingPane = first([
     '[data-app-section="MailReadCompose"]',
     '[aria-label*="閲覧ウィンドウ"]',
@@ -150,8 +158,18 @@ export function outlookPrintMode(action, sourceUrl) {
     return { ok: false, error: "開いているメールの個別URLを取得できませんでした。メール一覧で対象メールを選択してから再実行してください。" };
   }
 
-  document.getElementById(WRAPPER_ID)?.remove();
-  document.getElementById(STYLE_ID)?.remove();
+  // The tiles in the body show the file names truncated and carry no URL, so
+  // the names are listed once more as text that survives in the PDF. A file
+  // without an address of its own falls back to the message it is attached to.
+  const files = (Array.isArray(attachments) ? attachments : [])
+    .map(item => ({
+      name: String(item?.name || "").trim(),
+      url: item?.url || messageUrl,
+      // Kept apart so a link that only reopens the mail is not read as the file.
+      direct: Boolean(item?.url)
+    }))
+    .filter(item => item.name);
+
   globalThis.__olmPreviousTitle = document.title;
   const wrapper = document.createElement("main");
   wrapper.id = WRAPPER_ID;
@@ -161,7 +179,30 @@ export function outlookPrintMode(action, sourceUrl) {
   link.textContent = `元のメールを Outlook で開く: ${messageUrl}`;
   const heading = document.createElement("h1");
   heading.textContent = subject;
-  wrapper.append(link, heading, container.cloneNode(true));
+  wrapper.append(link, heading);
+  if (files.length) {
+    const section = document.createElement("section");
+    section.className = "olm-attachments";
+    const title = document.createElement("h2");
+    title.textContent = `添付ファイル (${files.length}件)`;
+    const list = document.createElement("ol");
+    for (const item of files) {
+      const row = document.createElement("li");
+      const anchor = document.createElement("a");
+      anchor.href = item.url;
+      anchor.textContent = item.name;
+      row.append(anchor);
+      const address = document.createElement("span");
+      address.className = "olm-attachment-url";
+      // Printed on paper a link is lost, so the destination is written out.
+      address.textContent = item.direct ? item.url : "（このファイル固有のURLはありません。リンク先は元のメールです）";
+      row.append(address);
+      list.append(row);
+    }
+    section.append(title, list);
+    wrapper.append(section);
+  }
+  wrapper.append(container.cloneNode(true));
   const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
@@ -171,6 +212,11 @@ export function outlookPrintMode(action, sourceUrl) {
     #${WRAPPER_ID} * { max-width: 100% !important; }
     #${WRAPPER_ID} h1 { font-size: 18px; border-bottom: 1px solid #bbb; padding-bottom: 8px; }
     #${WRAPPER_ID} .olm-source-link { display: block; padding: 10px; margin-bottom: 14px; border: 1px solid #3574c5; background: #eef6ff; color: #0645ad; overflow-wrap: anywhere; }
+    #${WRAPPER_ID} .olm-attachments { margin: 0 0 14px; padding: 8px 12px; border: 1px solid #cfd8e3; background: #f6f8fb; }
+    #${WRAPPER_ID} .olm-attachments h2 { font-size: 13px; margin: 0 0 6px; }
+    #${WRAPPER_ID} .olm-attachments ol { margin: 0; padding-left: 20px; }
+    #${WRAPPER_ID} .olm-attachments li { margin-bottom: 5px; overflow-wrap: anywhere; }
+    #${WRAPPER_ID} .olm-attachment-url { display: block; color: #555; font-size: 10px; }
     #${WRAPPER_ID} button, #${WRAPPER_ID} [role="button"] { display: none !important; }
   `;
   document.head.appendChild(style);
@@ -180,11 +226,12 @@ export function outlookPrintMode(action, sourceUrl) {
     ok: true,
     metadata: {
       subject,
-      date: receivedDate
+      date: receivedDate,
+      attachments: files
     }
   };
 }
 
-export function buildPrintPageExpression(action, sourceUrl = "") {
-  return `(${outlookPrintMode.toString()})(${JSON.stringify(action)}, ${JSON.stringify(sourceUrl)})`;
+export function buildPrintPageExpression(action, sourceUrl = "", attachments = []) {
+  return `(${outlookPrintMode.toString()})(${JSON.stringify(action)}, ${JSON.stringify(sourceUrl)}, ${JSON.stringify(attachments)})`;
 }

@@ -30,6 +30,16 @@ export function buildFilename({ sender, date, subject }) {
   return `📩_${sanitizeFilenamePart(sender, "差出人不明")}_${day}_${time}_${sanitizeFilenamePart(stripReplyPrefix(subject), "件名なし")}.pdf`;
 }
 
+// The PDF carries the full attachment list, so the popup only has to make the
+// result checkable at a glance: how many files were found, and enough names to
+// tell that the right message was saved.
+export function describeAttachments(attachments) {
+  const names = (attachments || []).map(item => String(item?.name || "").trim()).filter(Boolean);
+  if (!names.length) return "";
+  const rest = names.length > 3 ? ` ほか${names.length - 3}件` : "";
+  return `添付ファイル ${names.length}件の名前とリンクをPDFに記載しました: ${names.slice(0, 3).join(" / ")}${rest}`;
+}
+
 export function parseMailDate(value) {
   if (value instanceof Date) return Number.isNaN(value.valueOf()) ? null : value;
   const source = String(value || "").trim();
