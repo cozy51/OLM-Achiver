@@ -69,7 +69,8 @@ async function saveWithPrintDialog(tab, senderName) {
   const filename = buildFilename({
     sender: senderName,
     subject: prepared.metadata.subject,
-    date: prepared.metadata.date
+    date: prepared.metadata.date,
+    attachments: prepared.metadata.attachments
   });
   await chrome.scripting.executeScript({
     target: { tabId: tab.id },
@@ -178,7 +179,8 @@ async function saveCurrentMail(senderName) {
     const filename = buildFilename({
       sender: senderName.trim(),
       subject: prepared.metadata.subject,
-      date: prepared.metadata.date
+      date: prepared.metadata.date,
+      attachments: prepared.metadata.attachments
     });
     await runStep("download", () => chrome.downloads.download({
       url: `data:application/pdf;base64,${pdf.data}`,
