@@ -3,15 +3,23 @@
 // part stays a dumb collector and every judgement can be unit tested without a
 // browser.
 
-// Outlook joins the fields of an attachment tile into one label, as in
-// "画像添付ファイル、写真.jpg、6 MB". Only one of those fields is the file name,
-// and an extension is what tells it apart from the size or the tile's category.
-// Requiring one also keeps the well's own summary line ("添付ファイル 2 個 (6 MB)")
-// and its buttons out of the list.
-const FILE_NAME = /^.{1,120}\.[A-Za-z0-9]{1,8}$/;
-// A size written without a space ("6.5MB") has the shape of a file name, so it
-// is the one form that has to be named to be excluded.
+// A tile's accessible name is the file name followed by what can be done with
+// it and how big it is — Outlook writes it as "Image (1).jpg 開く 6 MB", with no
+// separator to key on. The extension is the fixed point: the name ends there,
+// and what follows describes the tile rather than the file. Requiring one also
+// keeps the well's summary line ("添付ファイル 2 個 (6 MB)") and its buttons out.
+const EXTENSION = /\.[A-Za-z0-9]{1,8}(?![\p{L}\p{N}])/gu;
+// ".5" in "1.5 MB" has the shape of an extension; a real one carries a letter.
+const HAS_LETTER = /[A-Za-z]/;
+// A size written without a space ("6.5MB") passes that test, so it is the one
+// form that has to be named to be excluded.
 const FILE_SIZE = /^[\d.,]+\s*(?:B|KB|MB|GB|TB|バイト)$/i;
+// Outlook does join fields with a Japanese comma elsewhere. An ASCII comma is
+// left alone: it appears inside file names far more often than between fields.
+const FIELDS = /[、]\s*/;
+// What Outlook can put in front of the name. English words are not stripped —
+// "Image" and "Open" begin real file names as readily as they label a tile.
+const PREFIX = /^(?:(?:画像)?添付ファイル|Attachment)\s*[:：]?\s*|^(?:開く|プレビュー|ダウンロード|選択)\s+/i;
 // A message with more tiles than this is not what the list is for; the cap only
 // stops a mislabelled page from filling the PDF.
 const MAX_ATTACHMENTS = 40;
@@ -22,15 +30,19 @@ export function attachmentNameFrom(value) {
     .replace(/[\uE000-\uF8FF]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (!text) return "";
-  // The whole label is tried first: a file name may itself contain a comma.
-  for (const segment of [text, ...text.split(/[、,]\s*/)]) {
-    const name = segment
-      .replace(/^\s*(?:添付ファイル|Attachment)\s*[:：]?\s*/i, "")
-      // A trailing "(6 MB)" is the size Outlook appends after the name.
-      .replace(/\s*[(（][^()（）]*[)）]\s*$/, "")
-      .trim();
-    if (FILE_NAME.test(name) && !FILE_SIZE.test(name)) return name;
+  for (const field of text.split(FIELDS)) {
+    for (const match of field.matchAll(EXTENSION)) {
+      if (!HAS_LETTER.test(match[0])) continue;
+      // Everything before the extension belongs to the name: it can hold spaces
+      // and brackets, as "Image (1).jpg" does, so it cannot be tokenised.
+      const name = field.slice(0, match.index + match[0].length).replace(PREFIX, "").trim();
+      if (!name || name.length > 120 || FILE_SIZE.test(name)) continue;
+      // A file name carries no path separator; a URL in a data attribute does.
+      if (/[\\/]/.test(name)) continue;
+      // An extension with nothing in front of it is not a file name.
+      if (name.length <= match[0].length) continue;
+      return name;
+    }
   }
   return "";
 }
@@ -48,14 +60,19 @@ export function listAttachments(scan) {
     const name = (entry?.labels || []).map(attachmentNameFrom).find(Boolean);
     if (!name) continue;
     const url = attachmentLink(entry.href, scan?.pageUrl);
-    const existing = found.get(name);
+    // One tile is one file. Grouping by tile rather than by name keeps the
+    // label and the image inside a tile from counting twice, and still lists
+    // two tiles that happen to carry the same file name as the two files they
+    // are. An entry outside any tile falls back to its name.
+    const key = Number.isInteger(entry.tile) ? `tile:${entry.tile}` : `name:${name}`;
+    const existing = found.get(key);
     if (existing) {
       // The name usually sits on an outer element and the link on an inner one.
       if (!existing.url && url) existing.url = url;
       continue;
     }
     if (found.size >= MAX_ATTACHMENTS) break;
-    found.set(name, { name, url });
+    found.set(key, { name, url });
   }
   return [...found.values()];
 }

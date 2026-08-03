@@ -33,9 +33,17 @@ export function buildFilename({ sender, date, subject }) {
 // The PDF carries the full attachment list, so the popup only has to make the
 // result checkable at a glance: how many files were found, and enough names to
 // tell that the right message was saved.
-export function describeAttachments(attachments) {
+export function describeAttachments(attachments, diagnostics = {}) {
   const names = (attachments || []).map(item => String(item?.name || "").trim()).filter(Boolean);
-  if (!names.length) return "";
+  if (!names.length) {
+    // Saying nothing is right for a message with nothing attached. An
+    // attachment area that was found but could not be read is a different
+    // result, and reporting it as silence would leave the PDF quietly short of
+    // what the user asked it to record.
+    return diagnostics.wells
+      ? "添付欄は見つかりましたが、ファイル名を読み取れませんでした。PDFに一覧は入っていません。"
+      : "";
+  }
   const rest = names.length > 3 ? ` ほか${names.length - 3}件` : "";
   return `添付ファイル ${names.length}件の名前とリンクをPDFに記載しました: ${names.slice(0, 3).join(" / ")}${rest}`;
 }

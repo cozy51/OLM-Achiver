@@ -34,7 +34,9 @@ async function findOutlookTab() {
 
 // Read separately from the print page so a message can still be saved when the
 // attachment well is built in a way the scan does not recognise: the file list
-// is an addition to the PDF, never a reason to fail the save.
+// is an addition to the PDF, never a reason to fail the save. The well count
+// travels with the files so an empty list is never reported as silence when
+// there was something there to read.
 async function readAttachments(tabId) {
   try {
     const results = await chrome.scripting.executeScript({
@@ -42,9 +44,10 @@ async function readAttachments(tabId) {
       func: collectAttachmentTiles,
       world: "ISOLATED"
     });
-    return listAttachments(results?.[0]?.result);
+    const scan = results?.[0]?.result;
+    return { files: listAttachments(scan), wells: scan?.wells || 0 };
   } catch {
-    return [];
+    return { files: [], wells: 0 };
   }
 }
 
@@ -53,7 +56,7 @@ async function saveWithPrintDialog(tab, senderName) {
   const startResults = await runStep("readMail", () => chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: outlookPrintMode,
-    args: ["start", tab.url, attachments],
+    args: ["start", tab.url, attachments.files],
     world: "ISOLATED"
   }));
   const prepared = startResults?.[0]?.result;
@@ -74,7 +77,12 @@ async function saveWithPrintDialog(tab, senderName) {
     args: ["print", filename],
     world: "ISOLATED"
   });
-  return { filename, printDialog: true, attachments: prepared.metadata.attachments || [] };
+  return {
+    filename,
+    printDialog: true,
+    attachments: prepared.metadata.attachments || [],
+    attachmentWells: attachments.wells
+  };
 }
 
 // Reading the sender only needs the DOM, so it uses chrome.scripting instead of
@@ -152,7 +160,7 @@ async function saveCurrentMail(senderName) {
     const attachments = await readAttachments(tab.id);
     const prepared = await runStep("readMail", async () => {
       const evaluated = await chrome.debugger.sendCommand(target, "Runtime.evaluate", {
-        expression: buildPrintPageExpression("start", tab.url, attachments),
+        expression: buildPrintPageExpression("start", tab.url, attachments.files),
         returnByValue: true,
         awaitPromise: true
       });
@@ -177,7 +185,7 @@ async function saveCurrentMail(senderName) {
       filename,
       saveAs: true
     }));
-    return { filename, attachments: prepared.metadata.attachments || [] };
+    return { filename, attachments: prepared.metadata.attachments || [], attachmentWells: attachments.wells };
   } finally {
     if (attached) {
       await chrome.debugger.sendCommand(target, "Runtime.evaluate", {
