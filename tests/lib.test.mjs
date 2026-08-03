@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { buildFilename, describeAttachments, isSupportedOutlookUrl, parseMailDate, sanitizeFilenamePart, selectOutlookTab, stripReplyPrefix } from "../lib.js";
 import { buildPrintPageExpression } from "../print-page.js";
-import { attachmentLink, attachmentNameFrom, listAttachments } from "../attachments.js";
+import { attachmentLink, attachmentNameBeforeCommand, attachmentNameFrom, attachmentSubjectFrom, listAttachments } from "../attachments.js";
 import { collectAttachmentTiles } from "../scan-attachments.js";
 import { collectSenderCandidates } from "../scan-sender.js";
 import { CONFIDENT_SENDER_SCORE, cleanSenderName, isSenderLike, rankSenders } from "../sender.js";
@@ -167,6 +167,11 @@ assert.match(attachmentScanSource, /findWells\(document\)/);
 // A tile resolves to its [role="option"] before any inner draggable preview,
 // so one attachment is reported once.
 assert.match(attachmentScanSource, /closest\('\[role="option"\], \[role="listitem"\]'\)/);
+// Whether a label belongs to the tile or to a button inside it decides which
+// of them can be read as a subject.
+assert.match(attachmentScanSource, /own: element === tile/);
+// Only a tile can vouch for a name that has no extension to prove it is one.
+assert.match(attachmentScanSource, /inTile: Boolean\(found\)/);
 
 // A name reached only through an image's alt text or a hidden label still ends
 // up in the list; the href of a cloud tile must never become the name.
@@ -219,6 +224,52 @@ assert.deepEqual(listAttachments({
   { name: "Image (1).jpg", url: "" },
   { name: "Image (2).jpg", url: "" }
 ]);
+// A mail attached to a mail carries a subject, not a file name, so there is no
+// extension to cut at. The kind Outlook writes on the tile is what marks it.
+assert.equal(attachmentSubjectFrom("【79584】FST見学 Outlook アイテム 開く 250 KB"), "【79584】FST見学");
+assert.equal(attachmentSubjectFrom("Weekly report Outlook item Open 12 KB"), "Weekly report");
+// The kind is what makes a subject readable as a name, so a label without one
+// stays out however plausible it reads.
+assert.equal(attachmentSubjectFrom("すべてダウンロード"), "");
+assert.equal(attachmentSubjectFrom("Outlook アイテム"), "");
+// A subject may contain a word that also names a command; the kind settles it.
+assert.equal(attachmentSubjectFrom("保存先の件 Outlook アイテム 開く 12 KB"), "保存先の件");
+
+// Taken from a real read view of a mail forwarding another mail: the kind is
+// drawn beside the tile and kept out of its label, so the command is the only
+// boundary. The buttons inside the tile name nothing.
+assert.equal(
+  attachmentNameBeforeCommand("【79584】FST PBN CST LP & CST見学報告 開く 250 KB"),
+  "【79584】FST PBN CST LP & CST見学報告"
+);
+// A command word is only a boundary when it stands as its own word.
+assert.equal(attachmentNameBeforeCommand("すべてダウンロード"), "");
+assert.equal(attachmentNameBeforeCommand("開く 250 KB"), "");
+assert.deepEqual(listAttachments({
+  entries: [
+    { tile: 0, own: true, inTile: true, labels: ["【79584】FST PBN CST LP & CST見学報告 開く 250 KB"], href: "" },
+    { tile: 0, own: false, inTile: true, labels: ["Outlook アイテム"], href: "" },
+    { tile: 0, own: false, inTile: true, labels: ["その他のオプション"], href: "" }
+  ]
+}), [{ name: "【79584】FST PBN CST LP & CST見学報告", url: "" }]);
+// The kind inside the label is still honoured where a build writes it there.
+assert.deepEqual(listAttachments({
+  entries: [{ tile: 0, own: true, inTile: true, labels: ["【79584】FST見学 Outlook アイテム 開く 250 KB"], href: "" }]
+}), [{ name: "【79584】FST見学", url: "" }]);
+// A tile whose label is the name alone, with nothing after it to cut at.
+assert.deepEqual(listAttachments({
+  entries: [{ tile: 0, own: true, inTile: true, labels: ["【79584】FST見学"], href: "" }]
+}), [{ name: "【79584】FST見学", url: "" }]);
+// Wording loose in the well is not a tile, so it names nothing however much it
+// reads like one. This is what keeps the summary line and the buttons out.
+assert.deepEqual(listAttachments({
+  entries: [
+    { tile: 0, own: true, inTile: false, labels: ["すべてダウンロード"], href: "" },
+    { tile: 1, own: true, inTile: false, labels: ["添付ファイル 1 個 (250 KB)"], href: "" },
+    { tile: 2, own: true, inTile: false, labels: ["すべてを OneDrive に保存"], href: "" }
+  ]
+}), []);
+
 // Two files really can share a name, so tiles are what separate them.
 assert.equal(listAttachments({
   entries: [

@@ -59,10 +59,14 @@ export function collectAttachmentTiles() {
   // keeps a tile and its own contents from being counted as two files.
   const tiles = new Map();
   const tileOf = element => {
-    const tile = element.closest('[role="option"], [role="listitem"]') ||
-      element.closest('a[href], [draggable="true"]') || element;
+    const found = element.closest('[role="option"], [role="listitem"]') ||
+      element.closest('a[href], [draggable="true"]');
+    // Whether a tile was found at all is reported: wording loose in the well —
+    // the summary line, the buttons under it — is not an attachment, and only a
+    // tile can vouch for a name that has no extension to prove it is one.
+    const tile = found || element;
     if (!tiles.has(tile)) tiles.set(tile, tiles.size);
-    return { tile, index: tiles.get(tile) };
+    return { tile, index: tiles.get(tile), inTile: Boolean(found) };
   };
 
   const entries = [];
@@ -80,11 +84,13 @@ export function collectAttachmentTiles() {
         ...[...element.attributes].filter(item => item.name.startsWith("data-")).map(item => item.value)
       ].filter(label => label && label.length <= MAX_LABEL);
       if (!labels.length) continue;
-      const { tile, index } = tileOf(element);
+      const { tile, index, inTile } = tileOf(element);
       // A cloud attachment is a real link; a file stored in the message is a
       // tile that downloads through script, so it has no URL of its own.
       const anchor = tile.matches("a[href]") ? tile : tile.querySelector("a[href]");
-      entries.push({ tile: index, labels, href: anchor?.href || "" });
+      // Whether the label belongs to the tile or to something drawn inside it.
+      // A tile's own label is the attachment; its parts include buttons.
+      entries.push({ tile: index, own: element === tile, inTile, labels, href: anchor?.href || "" });
     }
   }
   // Reported so "no attachments" can be told apart from "the well was found but
