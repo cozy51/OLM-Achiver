@@ -6,6 +6,10 @@ const senderInput = document.querySelector("#sender");
 const pasteButton = document.querySelector("#paste");
 const hint = document.querySelector("#hint");
 
+// The manifest is the single source of truth for the version, so the heading
+// never drifts from what the browser actually installed.
+document.querySelector("#version").textContent = `v${chrome.runtime.getManifest().version}`;
+
 const MANUAL_HINT = "Outlookに表示されている差出人名をコピーし、ここへ貼り付けてください。";
 
 // Only the best match is shown. Listing the runners-up alongside it invites
