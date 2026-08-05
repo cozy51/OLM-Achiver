@@ -201,6 +201,23 @@ assert.equal(attachmentNameFrom("6.5MB"), "");
 assert.equal(attachmentNameFrom("1.5 MB"), "");
 // A URL in a data attribute is not a file name, however it ends.
 assert.equal(attachmentNameFrom("https://contoso.sharepoint.com/thumb.png"), "");
+// A person is not a file. An address ends in something extension-shaped, so
+// "yasuhiro.nishi@akl.muratec.co.jp" was listed in a PDF as "yasuhiro.nishi".
+assert.equal(attachmentNameFrom("yasuhiro.nishi@akl.muratec.co.jp"), "");
+assert.equal(attachmentNameFrom("安田 浩司（Yasuda,K.）<koji.yasuda@akl.muratec.co.jp>"), "");
+assert.equal(attachmentNameFrom("宛先: hitomi.inagaki@akl.muratec.co.jp"), "");
+// A file listed beside a person is still the file, and the person stays out of
+// the name.
+assert.equal(attachmentNameFrom("hitomi.inagaki@akl.muratec.co.jp 見積書.xlsx"), "見積書.xlsx");
+// The trade the rule makes: a name that is itself shaped like an address is
+// read as the person it looks like. A person in the well is common, an ASCII
+// file name built around an @ is not.
+assert.equal(attachmentNameFrom("meeting@2026.pdf 開く 2 MB"), "");
+// Only ASCII reads as an address, so a Japanese name keeps its @.
+assert.equal(attachmentNameFrom("見積書@最新.xlsx 開く 2 MB"), "見積書@最新.xlsx");
+// The same person read by the routes that need no extension at all.
+assert.equal(attachmentSubjectFrom("yasuhiro.nishi@akl.muratec.co.jp Outlook アイテム 開く 12 KB"), "");
+assert.equal(attachmentNameBeforeCommand("yasuhiro.nishi@akl.muratec.co.jp 開く 12 KB"), "");
 
 // Only a real file address counts; an anchor back to the open message does not.
 assert.equal(attachmentLink("https://contoso.sharepoint.com/a.pdf", "https://outlook.cloud.microsoft/mail/x"), "https://contoso.sharepoint.com/a.pdf");
