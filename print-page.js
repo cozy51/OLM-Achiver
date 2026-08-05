@@ -172,8 +172,11 @@ export function outlookPrintMode(action, sourceUrl, attachments) {
   const FILE_KINDS = [
     { match: /\.(?:xlsx|xlsm|xlsb|xls|csv)$/i, label: "XLS", color: "#107C41" },
     { match: /\.(?:docx|docm|doc|rtf)$/i, label: "DOC", color: "#185ABD" },
-    { match: /\.(?:pptx|pptm|ppt|pps)$/i, label: "PPT", color: "#C43E1C" },
-    { match: /\.pdf$/i, label: "PDF", color: "#C4314B" },
+    // PowerPoint's own red-orange sits within 25° of PDF's crimson, and at 16px
+    // the two badges read as the same colour. The pair is split by hue and by
+    // lightness at once: an unmistakable orange against a dark red.
+    { match: /\.(?:pptx|pptm|ppt|pps)$/i, label: "PPT", color: "#D95A00" },
+    { match: /\.pdf$/i, label: "PDF", color: "#A4262C" },
     { match: /\.(?:png|jpe?g|gif|bmp|tiff?|webp|heic|svg)$/i, label: "IMG", color: "#8764B8" },
     { match: /\.(?:zip|7z|rar|lzh|tar|gz)$/i, label: "ZIP", color: "#8A7B4F" },
     { match: /\.(?:txt|log|md|json|xml|html?)$/i, label: "TXT", color: "#5D5A58" },
