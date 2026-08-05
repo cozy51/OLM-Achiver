@@ -32,6 +32,18 @@ const TILE_COMMAND = /開く|ダウンロード|保存|プレビュー|削除|�
 // A message with more tiles than this is not what the list is for; the cap only
 // stops a mislabelled page from filling the PDF.
 const MAX_ATTACHMENTS = 40;
+// An address has the shape of a file name: the ".nishi" of
+// "yasuhiro.nishi@akl.muratec.co.jp" reads as an extension, and the name would
+// be the person. Outlook writes an address wherever the well carries a person —
+// the sender of an attached mail, the alt text of a contact photo — so the span
+// an address covers is worked out first and every extension inside it is passed
+// over. The domain deliberately stops short of requiring a dot: in
+// "meeting@2026.pdf" only "meeting@2026" is read as an address, which leaves the
+// file its name.
+const ADDRESS = /[A-Za-z0-9._%+'-]+@[A-Za-z0-9.-]+/g;
+// A label that is an address and nothing else names nobody's file, whichever
+// route reads it.
+const ADDRESS_ONLY = /^[A-Za-z0-9._%+'-]+@[A-Za-z0-9.-]+$/;
 
 const clean = value => String(value || "")
   // Outlook draws the file-type icon with a private-use glyph in the label.
@@ -40,17 +52,24 @@ const clean = value => String(value || "")
   .trim();
 
 const usableName = name =>
-  Boolean(name) && name.length <= 120 && !FILE_SIZE.test(name) && !/[\\/]/.test(name);
+  Boolean(name) && name.length <= 120 && !FILE_SIZE.test(name) && !/[\\/]/.test(name) &&
+  !ADDRESS_ONLY.test(name);
 
 
 export function attachmentNameFrom(value) {
   const text = clean(value);
   for (const field of text.split(FIELDS)) {
+    const addresses = [...field.matchAll(ADDRESS)].map(match => [match.index, match.index + match[0].length]);
     for (const match of field.matchAll(EXTENSION)) {
       if (!HAS_LETTER.test(match[0])) continue;
+      const end = match.index + match[0].length;
+      if (addresses.some(([from, to]) => match.index < to && end > from)) continue;
       // Everything before the extension belongs to the name: it can hold spaces
-      // and brackets, as "Image (1).jpg" does, so it cannot be tokenised.
-      const name = field.slice(0, match.index + match[0].length).replace(PREFIX, "").trim();
+      // and brackets, as "Image (1).jpg" does, so it cannot be tokenised. An
+      // address in front of it is not part of it, though — the name starts
+      // after the last one, so a person cc'd beside the file stays out of it.
+      const start = addresses.filter(([, to]) => to <= match.index).map(([, to]) => to).pop() || 0;
+      const name = field.slice(start, end).replace(PREFIX, "").trim();
       if (!usableName(name)) continue;
       // An extension with nothing in front of it is not a file name.
       if (name.length <= match[0].length) continue;
