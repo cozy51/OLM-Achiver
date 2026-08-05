@@ -163,8 +163,67 @@ export function outlookPrintMode(action, sourceUrl, attachments) {
   // stored in the message has no address of its own, and the link at the top of
   // the page already opens that message, so those rows stay plain names.
   const files = (Array.isArray(attachments) ? attachments : [])
-    .map(item => ({ name: String(item?.name || "").trim(), url: item?.url || "" }))
+    .map(item => ({ name: String(item?.name || "").trim(), url: item?.url || "", mail: item?.mail === true }))
     .filter(item => item.name);
+
+  // The kinds worth telling apart at a glance, in Office's own colours so the
+  // list reads the way the attachment well does. Anything else keeps its own
+  // extension as the label, which says more than a generic icon would.
+  const FILE_KINDS = [
+    { match: /\.(?:xlsx|xlsm|xlsb|xls|csv)$/i, label: "XLS", color: "#107C41" },
+    { match: /\.(?:docx|docm|doc|rtf)$/i, label: "DOC", color: "#185ABD" },
+    { match: /\.(?:pptx|pptm|ppt|pps)$/i, label: "PPT", color: "#C43E1C" },
+    { match: /\.pdf$/i, label: "PDF", color: "#C4314B" },
+    { match: /\.(?:png|jpe?g|gif|bmp|tiff?|webp|heic|svg)$/i, label: "IMG", color: "#8764B8" },
+    { match: /\.(?:zip|7z|rar|lzh|tar|gz)$/i, label: "ZIP", color: "#8A7B4F" },
+    { match: /\.(?:txt|log|md|json|xml|html?)$/i, label: "TXT", color: "#5D5A58" },
+    { match: /\.(?:dwg|dxf|step|stp|igs|iges|sldprt|sldasm|catpart)$/i, label: "CAD", color: "#00707F" },
+    { match: /\.(?:msg|eml)$/i, mail: true }
+  ];
+  const MAIL_COLOR = "#0F6CBD";
+  const OTHER_COLOR = "#6E6E6E";
+  // Drawn as shapes rather than as a background colour: a background is what a
+  // printer drops first, and the PDF is made through the print path. The nodes
+  // are built one at a time because a build that enforces Trusted Types refuses
+  // markup assigned through innerHTML.
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const svgNode = (name, attributes) => {
+    const node = document.createElementNS(SVG_NS, name);
+    for (const key of Object.keys(attributes)) node.setAttribute(key, String(attributes[key]));
+    return node;
+  };
+  const attachmentIcon = item => {
+    const kind = FILE_KINDS.find(entry => entry.match.test(item.name));
+    // A mail attached to a mail has a subject where a file has a name, so what
+    // it is can only come from the scan; ".msg" says the same thing in writing.
+    // An extension outranks it: a row named like a file is drawn as that file.
+    const isMail = Boolean(kind?.mail) || (item.mail && !kind);
+    const icon = svgNode("svg", {
+      class: "olm-attachment-icon", width: 16, height: 16, viewBox: "0 0 16 16", "aria-hidden": "true"
+    });
+    icon.append(svgNode("rect", {
+      x: 0.5, y: 0.5, width: 15, height: 15, rx: 3, fill: isMail ? MAIL_COLOR : (kind?.color || OTHER_COLOR)
+    }));
+    if (isMail) {
+      icon.append(svgNode("rect", {
+        x: 3, y: 4.5, width: 10, height: 7.5, rx: 1, fill: "none", stroke: "#fff", "stroke-width": 1.2
+      }));
+      icon.append(svgNode("path", {
+        d: "M3.4 5.1 L8 8.7 L12.6 5.1", fill: "none", stroke: "#fff",
+        "stroke-width": 1.2, "stroke-linecap": "round", "stroke-linejoin": "round"
+      }));
+      return icon;
+    }
+    const extension = (item.name.match(/\.([A-Za-z0-9]{1,8})$/) || [])[1] || "";
+    const label = kind?.label || (extension ? extension.slice(0, 4).toUpperCase() : "FILE");
+    const text = svgNode("text", {
+      x: 8, y: 11, "text-anchor": "middle", "font-family": "Arial, sans-serif",
+      "font-size": label.length > 3 ? 5.2 : 6.6, "font-weight": 700, fill: "#fff"
+    });
+    text.textContent = label;
+    icon.append(text);
+    return icon;
+  };
 
   globalThis.__olmPreviousTitle = document.title;
   const wrapper = document.createElement("main");
@@ -184,6 +243,7 @@ export function outlookPrintMode(action, sourceUrl, attachments) {
     const list = document.createElement("ol");
     for (const item of files) {
       const row = document.createElement("li");
+      row.append(attachmentIcon(item));
       if (item.url) {
         const anchor = document.createElement("a");
         anchor.href = item.url;
@@ -194,7 +254,9 @@ export function outlookPrintMode(action, sourceUrl, attachments) {
         address.textContent = item.url;
         row.append(anchor, address);
       } else {
-        row.textContent = item.name;
+        const name = document.createElement("span");
+        name.textContent = item.name;
+        row.append(name);
       }
       list.append(row);
     }
@@ -215,7 +277,8 @@ export function outlookPrintMode(action, sourceUrl, attachments) {
     #${WRAPPER_ID} .olm-attachments h2 { font-size: 13px; margin: 0 0 6px; }
     #${WRAPPER_ID} .olm-attachments ol { margin: 0; padding-left: 20px; }
     #${WRAPPER_ID} .olm-attachments li { margin-bottom: 5px; overflow-wrap: anywhere; }
-    #${WRAPPER_ID} .olm-attachment-url { display: block; color: #555; font-size: 10px; }
+    #${WRAPPER_ID} .olm-attachment-icon { width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    #${WRAPPER_ID} .olm-attachment-url { display: block; color: #555; font-size: 10px; margin-left: 22px; }
     #${WRAPPER_ID} button, #${WRAPPER_ID} [role="button"] { display: none !important; }
   `;
   document.head.appendChild(style);

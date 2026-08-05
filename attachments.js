@@ -119,24 +119,34 @@ function looseName(value) {
   return /[\p{L}\p{N}]/u.test(text) ? text : "";
 }
 
+// The name, and whether the tile is a mail rather than a file. A mail carries a
+// subject where a file carries a name, so it has no extension to say what it is
+// — the one moment that is known is the moment Outlook's own wording is read,
+// and the answer travels with the row so the PDF can mark it.
 function nameOfTile(entries) {
   const labelsOf = only => entries
     .filter(entry => (only ? entry.own : true))
     .flatMap(entry => entry.labels || []);
+  // Outlook writes the kind wherever it likes — inside the tile's own label in
+  // one build, on a line beside it in another — but wherever it is, it is what
+  // says this row is a message rather than a file. Read once, before a name is
+  // chosen, because the route that finds the name differs between those builds.
+  const mail = labelsOf(false).some(label => ITEM_KIND.test(clean(label)));
   // A file name is the strongest evidence and needs no help from the tile.
   const named = labelsOf(false).map(attachmentNameFrom).find(Boolean);
-  if (named) return named;
+  if (named) return { name: named, mail };
   const subject = labelsOf(false).map(attachmentSubjectFrom).find(Boolean);
-  if (subject) return subject;
+  if (subject) return { name: subject, mail: true };
   // Past this point the name has no mark of its own, so the tile has to vouch
   // for it: a [role="option"] in the attachment well is an attachment, and the
   // only question left is where its label stops naming it. Wording loose in the
   // well — the summary line, the buttons under it — vouches for nothing.
-  if (!entries.some(entry => entry.inTile)) return "";
+  if (!entries.some(entry => entry.inTile)) return { name: "" };
   // The tile's own label names the attachment; its parts include buttons.
-  return labelsOf(true).map(attachmentNameBeforeCommand).find(Boolean) ||
+  const name = labelsOf(true).map(attachmentNameBeforeCommand).find(Boolean) ||
     labelsOf(true).map(looseName).find(Boolean) ||
     labelsOf(false).map(looseName).find(Boolean) || "";
+  return { name, mail };
 }
 
 export function listAttachments(scan) {
@@ -153,11 +163,13 @@ export function listAttachments(scan) {
   const found = [];
   for (const entries of tiles.values()) {
     if (found.length >= MAX_ATTACHMENTS) break;
-    const name = nameOfTile(entries);
+    const { name, mail } = nameOfTile(entries);
     if (!name) continue;
     // The name usually sits on an outer element and the link on an inner one.
     const url = entries.map(entry => attachmentLink(entry.href, scan?.pageUrl)).find(Boolean) || "";
-    found.push({ name, url });
+    // A file is a name and an address; the mark is only added where there is
+    // something to mark, so an ordinary row stays the two fields it always was.
+    found.push(mail ? { name, url, mail: true } : { name, url });
   }
   return found;
 }
