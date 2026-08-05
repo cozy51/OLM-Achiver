@@ -42,6 +42,15 @@ assert.match(expression, /toCloudDeepLink/);
 assert.match(expression, /outlook\.cloud\.microsoft/);
 assert.match(expression, /exvsurl=1/);
 assert.match(expression, /olm-attachments/);
+// Each row is marked with the kind of file it is. The icon is drawn as shapes,
+// not as a background colour, because printing is what makes the PDF and a
+// background is the first thing printing drops.
+assert.match(expression, /olm-attachment-icon/);
+assert.match(expression, /createElementNS/);
+assert.match(expression, /#107C41/);
+// A mail attached to a mail has no extension to draw from, so the scan's word
+// for it is what puts an envelope on the row.
+assert.match(expression, /item\.mail/);
 // A file stored in the message has no address of its own, and the link at the
 // top of the page is already that address, so the row is the name alone.
 assert.doesNotMatch(expression, /固有のURL/);
@@ -265,18 +274,21 @@ assert.equal(
 // A command word is only a boundary when it stands as its own word.
 assert.equal(attachmentNameBeforeCommand("すべてダウンロード"), "");
 assert.equal(attachmentNameBeforeCommand("開く 250 KB"), "");
+// The kind is drawn beside this tile rather than in its label, so the name comes
+// from the command boundary — and the row is still marked as a mail, because the
+// PDF draws an envelope for it where a file would carry its type.
 assert.deepEqual(listAttachments({
   entries: [
     { tile: 0, own: true, inTile: true, labels: ["【79584】FST PBN CST LP & CST見学報告 開く 250 KB"], href: "" },
     { tile: 0, own: false, inTile: true, labels: ["Outlook アイテム"], href: "" },
     { tile: 0, own: false, inTile: true, labels: ["その他のオプション"], href: "" }
   ]
-}), [{ name: "【79584】FST PBN CST LP & CST見学報告", url: "" }]);
+}), [{ name: "【79584】FST PBN CST LP & CST見学報告", url: "", mail: true }]);
 // The kind inside the label is still honoured where a build writes it there.
 assert.deepEqual(listAttachments({
   entries: [{ tile: 0, own: true, inTile: true, labels: ["【79584】FST見学 Outlook アイテム 開く 250 KB"], href: "" }]
-}), [{ name: "【79584】FST見学", url: "" }]);
-// A tile whose label is the name alone, with nothing after it to cut at.
+}), [{ name: "【79584】FST見学", url: "", mail: true }]);
+// Nothing on this tile says what it is, so nothing is claimed about it.
 assert.deepEqual(listAttachments({
   entries: [{ tile: 0, own: true, inTile: true, labels: ["【79584】FST見学"], href: "" }]
 }), [{ name: "【79584】FST見学", url: "" }]);
