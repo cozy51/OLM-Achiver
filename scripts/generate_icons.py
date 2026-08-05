@@ -1,7 +1,8 @@
 """Generate the raster icons referenced by manifest.json.
 
-The PNG outputs are intentionally gitignored because the PR system accepts
-text files only. Run this script before loading the unpacked extension.
+The PNG outputs live in icons/ and are committed, so loading the unpacked
+extension needs no build step. Run this script only when the icon design
+changes, then commit the regenerated PNGs.
 """
 import struct,zlib,math
 S=4
@@ -61,7 +62,7 @@ def make(n):
  def chunk(t,d):return struct.pack('>I',len(d))+t+d+struct.pack('>I',zlib.crc32(t+d)&0xffffffff)
  png=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',n,n,8,6,0,0,0))+chunk(b'IDAT',zlib.compress(raw,9))+chunk(b'IEND',b'')
  import os
- out_dir=os.path.join(os.path.dirname(__file__), 'icons')
+ out_dir=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'icons')
  os.makedirs(out_dir, exist_ok=True)
  open(os.path.join(out_dir, f'icon-{n}.png'),'wb').write(png)
 for n in (16,32,48,128):make(n)
