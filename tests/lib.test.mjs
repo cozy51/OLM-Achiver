@@ -160,8 +160,13 @@ assert.match(attachmentScanSource, /添付ファイル/);
 assert.match(attachmentScanSource, /aria-labelledby/);
 assert.match(attachmentScanSource, /"alt"/);
 assert.match(attachmentScanSource, /"download"/);
-// The well is looked for in the whole document when the pane holds none.
-assert.match(attachmentScanSource, /findWells\(document\)/);
+// The well is still looked for in the whole document when the pane holds none,
+// but only where it names itself: a row of the message list says "添付ファイル
+// あり" about a mail of its own, and six such rows were once listed in a PDF as
+// the attachments of a mail that had none.
+assert.match(attachmentScanSource, /findWells\(document, NAMED_WELL\)/);
+assert.match(attachmentScanSource, /closest\('\[role="option"\]'\)/);
+assert.match(attachmentScanSource, /readingPane \? findWells\(readingPane, \[\.\.\.NAMED_WELL, \.\.\.LABELLED_WELL\]\)/);
 // A tile resolves to its [role="option"] before any inner draggable preview,
 // so one attachment is reported once.
 assert.match(attachmentScanSource, /closest\('\[role="option"\], \[role="listitem"\]'\)/);

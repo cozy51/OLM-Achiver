@@ -74,20 +74,23 @@
     '[aria-label*="Reading pane"]'
   ]);
   const root = readingPane || document;
-  const WELL_LIST = [
+  const NAMED_WELL = [
     '[id$="_ATTACHMENTS"]',
     '[data-testid*="attachment" i]',
-    '[automation-id*="attachment" i]',
+    '[automation-id*="attachment" i]'
+  ];
+  const LABELLED_WELL = [
     '[aria-label*="添付ファイル"]',
     '[aria-label*="Attachment" i]'
   ];
-  const WELL = WELL_LIST.join(", ");
-  const findWells = scope => {
-    const matched = [...scope.querySelectorAll(WELL)];
+  const WELL_LIST = [...NAMED_WELL, ...LABELLED_WELL];
+  const findWells = (scope, selectors) => {
+    const matched = [...scope.querySelectorAll(selectors.join(", "))];
     return matched.filter(well => !matched.some(other => other !== well && other.contains(well)));
   };
-  const inPane = findWells(root);
-  const wells = inPane.length ? inPane : findWells(document);
+  const inPane = readingPane ? findWells(readingPane, WELL_LIST) : [];
+  const outside = findWells(document, NAMED_WELL).filter(well => !well.closest('[role="option"]'));
+  const wells = inPane.length ? inPane : outside;
   const usedFallback = !inPane.length && wells.length > 0;
 
   const NAMED = ["aria-label", "title", "alt", "download", "name"];
@@ -212,7 +215,9 @@
   say("== 添付欄 ==", `${wells.length}か所`, usedFallback ? "(閲覧ウィンドウ内に無く、ページ全体から拾いました)" : "");
   // どのセレクターが効いていないのかは、合計だけでは分かりません。
   for (const selector of WELL_LIST) {
-    say(`  ${selector} -> 閲覧ウィンドウ内 ${root.querySelectorAll(selector).length}件 / ページ全体 ${document.querySelectorAll(selector).length}件`);
+    const outsideCount = [...document.querySelectorAll(selector)].filter(element => !readingPane?.contains(element)).length;
+    const kind = NAMED_WELL.includes(selector) ? "" : " ※閲覧ウィンドウ内でのみ採用(メール一覧の行も同じ語を持つため)";
+    say(`  ${selector} -> 閲覧ウィンドウ内 ${root.querySelectorAll(selector).length}件 / 外 ${outsideCount}件${kind}`);
   }
   wells.forEach((well, index) => say(`  well[${index}]`, tag(well), `子孫${well.querySelectorAll("*").length}個`));
   if (!wells.length) {

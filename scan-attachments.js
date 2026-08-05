@@ -20,28 +20,37 @@ export function collectAttachmentTiles() {
     '[aria-label*="閲覧ウィンドウ"]',
     '[aria-label*="Reading pane"]'
   ]);
-  const root = readingPane || document;
-
-  // Outlook ids the attachment well as "MSG_<item>_ATTACHMENTS" and labels the
-  // list inside it "添付ファイル"/"画像添付ファイル", so the area is found by what
-  // Outlook calls it rather than by where it happens to be drawn.
-  const WELL = [
+  // Outlook ids the attachment well as "MSG_<item>_ATTACHMENTS" and hangs its
+  // test hooks off the same word, so the area is found by what Outlook calls it
+  // rather than by where it happens to be drawn.
+  const NAMED_WELL = [
     '[id$="_ATTACHMENTS"]',
     '[data-testid*="attachment" i]',
-    '[automation-id*="attachment" i]',
+    '[automation-id*="attachment" i]'
+  ];
+  // Outlook also labels the list inside the well "添付ファイル"/"画像添付ファイル",
+  // which is how an image attachment is found at all. But a row in the message
+  // list says "添付ファイルあり" in its own label, so this wording only means the
+  // well while it is read inside the reading pane.
+  const LABELLED_WELL = [
     '[aria-label*="添付ファイル"]',
     '[aria-label*="Attachment" i]'
-  ].join(", ");
-  const findWells = scope => {
-    const matched = [...scope.querySelectorAll(WELL)];
+  ];
+  const findWells = (scope, selectors) => {
+    const matched = [...scope.querySelectorAll(selectors.join(", "))];
     // The well and the list inside it both match, and each is scanned in full,
     // so the inner one is dropped rather than walked a second time.
     return matched.filter(well => !matched.some(other => other !== well && other.contains(well)));
   };
+  const inPane = readingPane ? findWells(readingPane, [...NAMED_WELL, ...LABELLED_WELL]) : [];
   // A build that draws the well outside the pane would otherwise hide every
-  // attachment, so the whole document is the fallback.
-  const inPane = findWells(root);
-  const wells = inPane.length ? inPane : findWells(document);
+  // attachment, so the document is still searched — but only for a well that
+  // names itself, and never inside a row of the message list. Six such rows,
+  // each labelled "添付ファイルあり" for a mail of its own, were once listed in a
+  // PDF as the attachments of the open mail, which had none: out here a
+  // [role="option"] is another message, not a file.
+  const outside = findWells(document, NAMED_WELL).filter(well => !well.closest('[role="option"]'));
+  const wells = inPane.length ? inPane : outside;
 
   // An image attachment is drawn as a thumbnail with no visible name, so the
   // name can be anywhere the accessibility tree can reach: the tile's label,
