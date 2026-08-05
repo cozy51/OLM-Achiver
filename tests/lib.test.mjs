@@ -5,7 +5,6 @@ import { attachmentLink, attachmentNameBeforeCommand, attachmentNameFrom, attach
 import { collectAttachmentTiles } from "../scan-attachments.js";
 import { collectSenderCandidates } from "../scan-sender.js";
 import { CONFIDENT_SENDER_SCORE, cleanSenderName, isSenderLike, rankSenders } from "../sender.js";
-import { installActionIcon } from "../icon.js";
 
 assert.equal(stripReplyPrefix("RE: Re[2]: FW： 月次報告"), "月次報告");
 assert.equal(stripReplyPrefix("返信: 転送：確認"), "確認");
@@ -46,7 +45,6 @@ assert.match(expression, /olm-attachments/);
 // A file stored in the message has no address of its own, and the link at the
 // top of the page is already that address, so the row is the name alone.
 assert.doesNotMatch(expression, /固有のURL/);
-assert.equal(typeof installActionIcon, "function");
 
 // The attachment list travels as an argument, so the page renders exactly what
 // was collected instead of scanning the DOM a second time.
