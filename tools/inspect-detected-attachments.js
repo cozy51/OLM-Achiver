@@ -2,6 +2,15 @@
 // はありません。誤検知したメールを Outlook で開き、DevTools のコンソールにこの
 // ファイル全体を貼り付けて実行し、出力をそのまま共有してください。
 //
+// 実行する画面が結果を左右します。拡張機能は「PDFを保存したその瞬間の画面」を
+// 読むので、**PDFを保存したときと同じ画面**(通常のOutlook画面で、そのメールを
+// 閲覧ウィンドウに開いた状態)で実行してください。PDF内のリンクから開いた単独
+// 表示の画面は作りが違い、添付欄が0か所になることがあります。
+//
+// PDFに出た余分な名前が分かっているときは、下の SUSPECT にその文字列を入れて
+// ください。添付欄が見つからない画面でも、その文字列がDOMのどこにあるかを追跡
+// します。
+//
 // tools/inspect-attachments.js が「添付欄がどんなDOMか」を見るのに対し、こちらは
 // 拡張機能と同じ収集・判定をその場で走らせ、検出した名前ごとに
 //   ・どの要素の、どの属性(ラベル)から取ったか
@@ -13,6 +22,8 @@
 // 氏名・メールアドレスは伏せ字にします(MASK を false にすると伏せません)。
 (() => {
   const MASK = true;
+  // 例: const SUSPECT = "yasuhiro.nishi";
+  const SUSPECT = "";
   const KEEP = /^(?:添付ファイル|画像添付ファイル|添付|ファイル|個|件|ダウンロード|すべて|保存|プレビュー|開く|共有|削除|その他|メニュー|オプション|画像|写真|文書|リンク|クラウド|OneDrive|SharePoint|Attachment|Attachments|File|Files|Download|Save|Open|Preview|Share|Delete|More|Image|Photo|Document|Link|Cloud|Outlook|アイテム|item|メール|mail|message)$/i;
 
   const mask = value => {
@@ -63,13 +74,14 @@
     '[aria-label*="Reading pane"]'
   ]);
   const root = readingPane || document;
-  const WELL = [
+  const WELL_LIST = [
     '[id$="_ATTACHMENTS"]',
     '[data-testid*="attachment" i]',
     '[automation-id*="attachment" i]',
     '[aria-label*="添付ファイル"]',
     '[aria-label*="Attachment" i]'
-  ].join(", ");
+  ];
+  const WELL = WELL_LIST.join(", ");
   const findWells = scope => {
     const matched = [...scope.querySelectorAll(WELL)];
     return matched.filter(well => !matched.some(other => other !== well && other.contains(well)));
@@ -196,8 +208,16 @@
   const lines = [];
   const say = (...values) => lines.push(values.join(" "));
   say("== URL ==", location.origin + location.pathname);
+  say("== 閲覧ウィンドウ ==", readingPane ? tag(readingPane) : "(見つかりません。ページ全体を対象にしました)");
   say("== 添付欄 ==", `${wells.length}か所`, usedFallback ? "(閲覧ウィンドウ内に無く、ページ全体から拾いました)" : "");
+  // どのセレクターが効いていないのかは、合計だけでは分かりません。
+  for (const selector of WELL_LIST) {
+    say(`  ${selector} -> 閲覧ウィンドウ内 ${root.querySelectorAll(selector).length}件 / ページ全体 ${document.querySelectorAll(selector).length}件`);
+  }
   wells.forEach((well, index) => say(`  well[${index}]`, tag(well), `子孫${well.querySelectorAll("*").length}個`));
+  if (!wells.length) {
+    say("  ※ この画面では拡張機能も0件になります。PDFを保存したときと同じ画面で実行してください。");
+  }
 
   say("", "== 検出結果(PDFに載る一覧と同じ) ==");
   let listed = 0;
@@ -224,6 +244,32 @@
     say(`  ${result.route} <- ${tag(group[0].element)} ラベル例: "${mask(group[0].sourced[0]?.[1])}"`);
   }
   if (!skipped) say("  (なし)");
+
+  // 添付欄が見つからない画面でも、余分な名前の出どころは追えます。文字列がどこに
+  // 書かれているか(タイルのラベルか、引用された本文か)が分かれば足ります。
+  say("", "== 手がかりの追跡 ==");
+  if (!SUSPECT) {
+    say('  (先頭の SUSPECT にPDFへ出た余分な名前を入れると、その文字列の在りかを追います)');
+  } else {
+    let found = 0;
+    for (const element of document.querySelectorAll("*")) {
+      const where = [];
+      for (const attribute of element.attributes) {
+        if (/^(?:class|style|href|src)$/i.test(attribute.name)) continue;
+        if (attribute.value.includes(SUSPECT)) where.push(attribute.name);
+      }
+      const own = [...element.childNodes].filter(node => node.nodeType === 3).map(node => node.textContent).join(" ");
+      if (own.includes(SUSPECT)) where.push("(テキスト)");
+      if (!where.length || found++ >= 10) continue;
+      say(`  ${where.join(" ")} <- ${tag(element)}`);
+      say(`     文字列: "${mask(own.includes(SUSPECT) ? own : element.getAttribute(where[0]))}"`);
+      say(`     道すじ: ${pathTo(element, document.body)}`);
+      say(`     添付欄の中か: ${wells.some(well => well.contains(element)) ? "はい" : "いいえ"}`);
+      const inBody = element.closest('[data-testid="message-body"], [aria-label="メッセージ本文"], [aria-label="Message body"], [role="document"]');
+      say(`     メール本文の中か: ${inBody ? "はい(引用された本文の可能性)" : "いいえ"}`);
+    }
+    if (!found) say(`  「${SUSPECT}」はこの画面のDOMに見当たりません。保存時と同じ画面で実行してください。`);
+  }
 
   const report = lines.join("\n");
   console.log(report);
