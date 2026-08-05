@@ -61,6 +61,7 @@ def make(n):
  def chunk(t,d):return struct.pack('>I',len(d))+t+d+struct.pack('>I',zlib.crc32(t+d)&0xffffffff)
  png=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',n,n,8,6,0,0,0))+chunk(b'IDAT',zlib.compress(raw,9))+chunk(b'IEND',b'')
  import os
- os.makedirs('icons', exist_ok=True)
- open(f'icons/icon-{n}.png','wb').write(png)
+ out_dir=os.path.join(os.path.dirname(__file__), 'icons')
+ os.makedirs(out_dir, exist_ok=True)
+ open(os.path.join(out_dir, f'icon-{n}.png'),'wb').write(png)
 for n in (16,32,48,128):make(n)

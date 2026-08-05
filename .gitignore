@@ -1,5 +1,5 @@
 # Generated extension icons (run: python3 scripts/generate_icons.py)
-icons/*.png
+scripts/icons/*.png
 __pycache__/
 *.pyc
 
