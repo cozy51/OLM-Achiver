@@ -1,5 +1,6 @@
 import { listAttachments } from "./attachments.js";
 import { buildFilename, isSupportedOutlookUrl, selectOutlookTab } from "./lib.js";
+import { buildMarkdownDocument, extractBodyMarkdown, markdownDataUrl, markdownFilename } from "./markdown.js";
 import { buildPrintPageExpression, outlookPrintMode } from "./print-page.js";
 import { collectAttachmentTiles } from "./scan-attachments.js";
 import { collectSenderCandidates } from "./scan-sender.js";
@@ -46,8 +47,51 @@ async function readAttachments(tabId) {
   }
 }
 
-async function saveWithPrintDialog(tab, senderName) {
+// Read before the print copy is placed, from the live message. A body that
+// cannot be read still leaves a Markdown file with the header and the
+// attachment list, and the PDF is never held back by it.
+async function readBodyMarkdown(tabId) {
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: extractBodyMarkdown,
+      world: "ISOLATED"
+    });
+    return results?.[0]?.result?.markdown || "";
+  } catch {
+    return "";
+  }
+}
+
+// The Markdown goes straight to the downloads folder: the PDF's save dialog is
+// where the user picks a place, and a second dialog for every mail would make
+// the option a chore. A failure is reported beside the PDF result, not as one.
+async function saveMarkdown({ pdfFilename, sender, metadata, body }) {
+  const filename = markdownFilename(pdfFilename);
+  try {
+    const text = buildMarkdownDocument({
+      subject: metadata.subject,
+      sender,
+      date: metadata.date,
+      url: metadata.url,
+      attachments: metadata.attachments,
+      body
+    });
+    await chrome.downloads.download({
+      url: markdownDataUrl(text),
+      filename,
+      saveAs: false,
+      conflictAction: "uniquify"
+    });
+    return { markdownFilename: filename };
+  } catch (error) {
+    return { markdownError: error?.message || String(error) };
+  }
+}
+
+async function saveWithPrintDialog(tab, senderName, wantsMarkdown) {
   const attachments = await readAttachments(tab.id);
+  const body = wantsMarkdown ? await readBodyMarkdown(tab.id) : "";
   const startResults = await runStep("readMail", () => chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: outlookPrintMode,
@@ -67,6 +111,10 @@ async function saveWithPrintDialog(tab, senderName) {
     date: prepared.metadata.date,
     attachments: prepared.metadata.attachments
   });
+  // Saved before the print preview opens, which holds the page until closed.
+  const markdown = wantsMarkdown
+    ? await saveMarkdown({ pdfFilename: filename, sender: senderName, metadata: prepared.metadata, body })
+    : {};
   await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: outlookPrintMode,
@@ -77,7 +125,8 @@ async function saveWithPrintDialog(tab, senderName) {
     filename,
     printDialog: true,
     attachments: prepared.metadata.attachments || [],
-    attachmentWells: attachments.wells
+    attachmentWells: attachments.wells,
+    ...markdown
   };
 }
 
@@ -114,7 +163,7 @@ async function detectSender() {
 }
 
 const HANDLERS = {
-  "save-current-mail": request => saveCurrentMail(request.senderName),
+  "save-current-mail": request => saveCurrentMail(request.senderName, request.markdown === true),
   "detect-sender": () => detectSender()
 };
 
@@ -125,7 +174,7 @@ chrome.runtime.onMessage.addListener((request, _sender, respond) => {
   return true;
 });
 
-async function saveCurrentMail(senderName) {
+async function saveCurrentMail(senderName, wantsMarkdown = false) {
   if (!String(senderName || "").trim()) throw new Error("差出人名を入力してください。");
   const tab = await runStep("findTab", findOutlookTab);
   if (!tab) {
@@ -151,9 +200,10 @@ async function saveCurrentMail(senderName) {
         await chrome.debugger.detach(target).catch(() => {});
         attached = false;
       }
-      return saveWithPrintDialog(tab, senderName.trim());
+      return saveWithPrintDialog(tab, senderName.trim(), wantsMarkdown);
     }
     const attachments = await readAttachments(tab.id);
+    const body = wantsMarkdown ? await readBodyMarkdown(tab.id) : "";
     const prepared = await runStep("readMail", async () => {
       const evaluated = await chrome.debugger.sendCommand(target, "Runtime.evaluate", {
         expression: buildPrintPageExpression("start", tab.url, attachments.files),
@@ -182,7 +232,10 @@ async function saveCurrentMail(senderName) {
       filename,
       saveAs: true
     }));
-    return { filename, attachments: prepared.metadata.attachments || [], attachmentWells: attachments.wells };
+    const markdown = wantsMarkdown
+      ? await saveMarkdown({ pdfFilename: filename, sender: senderName.trim(), metadata: prepared.metadata, body })
+      : {};
+    return { filename, attachments: prepared.metadata.attachments || [], attachmentWells: attachments.wells, ...markdown };
   } finally {
     if (attached) {
       await chrome.debugger.sendCommand(target, "Runtime.evaluate", {

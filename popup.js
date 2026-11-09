@@ -5,6 +5,17 @@ const status = document.querySelector("#status");
 const senderInput = document.querySelector("#sender");
 const pasteButton = document.querySelector("#paste");
 const hint = document.querySelector("#hint");
+const markdownBox = document.querySelector("#markdown");
+const MARKDOWN_KEY = "saveMarkdown";
+
+// The choice is kept between uses: someone who archives in Markdown wants it
+// every time, and someone who does not should never have to untick it.
+chrome.storage.local.get({ [MARKDOWN_KEY]: false })
+  .then(stored => { markdownBox.checked = stored[MARKDOWN_KEY] === true; })
+  .catch(() => {});
+markdownBox.addEventListener("change", () => {
+  chrome.storage.local.set({ [MARKDOWN_KEY]: markdownBox.checked }).catch(() => {});
+});
 
 // The manifest is the single source of truth for the version, so the heading
 // never drifts from what the browser actually installed.
@@ -65,13 +76,16 @@ button.addEventListener("click", async () => {
   status.className = "";
   status.textContent = "PDF を作成しています…";
   try {
-    const result = await chrome.runtime.sendMessage({ type: "save-current-mail", senderName });
+    const result = await chrome.runtime.sendMessage({ type: "save-current-mail", senderName, markdown: markdownBox.checked });
     if (!result.ok) throw new Error(result.error || "保存に失敗しました。");
     const saved = result.printDialog
       ? `Edgeの印刷画面を開きました。「プリンター」で「PDFとして保存」を選んでください。\n推奨ファイル名: ${result.filename}`
       : `保存しました: ${result.filename}`;
     const attachments = describeAttachments(result.attachments, { wells: result.attachmentWells });
-    status.textContent = attachments ? `${saved}\n${attachments}` : saved;
+    const markdown = result.markdownFilename
+      ? `Markdownも「ダウンロード」フォルダーへ保存しました: ${result.markdownFilename}`
+      : result.markdownError ? `Markdownは保存できませんでした: ${result.markdownError}` : "";
+    status.textContent = [saved, attachments, markdown].filter(Boolean).join("\n");
   } catch (error) {
     status.className = "error";
     const message = error.message || "保存に失敗しました。";

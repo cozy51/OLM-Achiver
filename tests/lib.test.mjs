@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { buildFilename, describeAttachments, isSupportedOutlookUrl, parseMailDate, sanitizeFilenamePart, selectOutlookTab, stripReplyPrefix } from "../lib.js";
+import { attachmentMark, buildMarkdownDocument, extractBodyMarkdown, formatMailDate, markdownDataUrl, markdownFilename } from "../markdown.js";
 import { buildPrintPageExpression } from "../print-page.js";
 import { attachmentLink, attachmentNameBeforeCommand, attachmentNameFrom, attachmentSubjectFrom, listAttachments } from "../attachments.js";
 import { collectAttachmentTiles } from "../scan-attachments.js";
@@ -327,5 +328,48 @@ assert.deepEqual(listAttachments(attachmentScan), [
 ]);
 assert.deepEqual(listAttachments(undefined), []);
 assert.deepEqual(listAttachments({ entries: [] }), []);
+
+
+// Markdown is saved next to the PDF under the same name, so the two files of
+// one mail sort side by side.
+assert.equal(markdownFilename("📩📎_山田_20260713_2041_確認.pdf"), "📩📎_山田_20260713_2041_確認.md");
+assert.equal(formatMailDate("2026-07-13 (月) 20:41"), "2026-07-13 (月) 20:41");
+assert.equal(formatMailDate(""), "不明");
+assert.equal(attachmentMark({ name: "仕様書.xlsx" }), "📊");
+assert.equal(attachmentMark({ name: "【79584】見学報告", mail: true }), "✉️");
+assert.equal(attachmentMark({ name: "設定.cfg" }), "📎");
+const markdownDoc = buildMarkdownDocument({
+  subject: "【依頼】確認",
+  sender: "山田 太郎 (Yamada,T.)",
+  date: "2026-07-13 (月) 20:41",
+  url: "https://outlook.cloud.microsoft/mail/deeplink/read/AA?ItemID=AA%2F&exvsurl=1",
+  attachments: [
+    { name: "仕様書 (改).xlsx", url: "https://contoso.sharepoint.com/a b.xlsx" },
+    { name: "Image (1).jpg", url: "" }
+  ],
+  body: "本文です。"
+});
+assert.match(markdownDoc, /^# 【依頼】確認\n/);
+assert.match(markdownDoc, /- \*\*差出人\*\*: 山田 太郎 \(Yamada,T\.\)/);
+assert.match(markdownDoc, /\[Outlook で開く\]\(https:\/\/outlook\.cloud\.microsoft\/mail\/deeplink\/read\/AA\?ItemID=AA%2F&exvsurl=1\)/);
+assert.match(markdownDoc, /## 📎 添付ファイル \(2件\)/);
+// A space or bracket in a link destination would end the link early.
+assert.match(markdownDoc, /1\. 📊 \[仕様書 \(改\)\.xlsx\]\(https:\/\/contoso\.sharepoint\.com\/a%20b\.xlsx\)/);
+assert.match(markdownDoc, /2\. 🖼️ Image \(1\)\.jpg\n/);
+assert.match(markdownDoc, /## 本文\n\n本文です。\n$/);
+// No attachment section for a mail with nothing attached, and an unreadable
+// body is said out loud rather than left blank.
+const bare = buildMarkdownDocument({ subject: "", sender: "", date: "", url: "", attachments: [], body: "" });
+assert.doesNotMatch(bare, /添付/);
+assert.match(bare, /本文を読み取れませんでした/);
+assert.ok(markdownDataUrl("# 件名\n").startsWith("data:text/markdown;charset=utf-8,"));
+assert.equal(decodeURIComponent(markdownDataUrl("# 件名\n").split(",")[1]), "# 件名\n");
+
+// The body converter runs inside the page, so it must survive serialisation.
+const markdownSource = extractBodyMarkdown.toString();
+assert.doesNotMatch(markdownSource, /\bimport\b/);
+assert.match(markdownSource, /safelinks/);
+assert.match(markdownSource, /divRplyFwdMsg/);
+assert.match(markdownSource, /olm-pdf-document/);
 
 console.log("lib tests passed");

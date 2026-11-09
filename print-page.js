@@ -292,6 +292,7 @@ export function outlookPrintMode(action, sourceUrl, attachments) {
     metadata: {
       subject,
       date: receivedDate,
+      url: messageUrl,
       attachments: files
     }
   };
