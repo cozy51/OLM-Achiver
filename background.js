@@ -89,7 +89,7 @@ async function saveMarkdown({ pdfFilename, sender, metadata, body }) {
   }
 }
 
-async function saveWithPrintDialog(tab, senderName, wantsMarkdown) {
+async function saveWithPrintDialog(tab, senderName, wantsMarkdown, comment = "") {
   const attachments = await readAttachments(tab.id);
   const body = wantsMarkdown ? await readBodyMarkdown(tab.id) : "";
   const startResults = await runStep("readMail", () => chrome.scripting.executeScript({
@@ -107,6 +107,7 @@ async function saveWithPrintDialog(tab, senderName, wantsMarkdown) {
   }
   const filename = buildFilename({
     sender: senderName,
+    comment,
     subject: prepared.metadata.subject,
     date: prepared.metadata.date,
     attachments: prepared.metadata.attachments
@@ -163,7 +164,7 @@ async function detectSender() {
 }
 
 const HANDLERS = {
-  "save-current-mail": request => saveCurrentMail(request.senderName, request.markdown === true),
+  "save-current-mail": request => saveCurrentMail(request.senderName, request.markdown === true, String(request.comment || "")),
   "detect-sender": () => detectSender()
 };
 
@@ -174,7 +175,7 @@ chrome.runtime.onMessage.addListener((request, _sender, respond) => {
   return true;
 });
 
-async function saveCurrentMail(senderName, wantsMarkdown = false) {
+async function saveCurrentMail(senderName, wantsMarkdown = false, comment = "") {
   if (!String(senderName || "").trim()) throw new Error("差出人名を入力してください。");
   const tab = await runStep("findTab", findOutlookTab);
   if (!tab) {
@@ -200,7 +201,7 @@ async function saveCurrentMail(senderName, wantsMarkdown = false) {
         await chrome.debugger.detach(target).catch(() => {});
         attached = false;
       }
-      return saveWithPrintDialog(tab, senderName.trim(), wantsMarkdown);
+      return saveWithPrintDialog(tab, senderName.trim(), wantsMarkdown, comment);
     }
     const attachments = await readAttachments(tab.id);
     const body = wantsMarkdown ? await readBodyMarkdown(tab.id) : "";
@@ -223,6 +224,7 @@ async function saveCurrentMail(senderName, wantsMarkdown = false) {
     );
     const filename = buildFilename({
       sender: senderName.trim(),
+      comment,
       subject: prepared.metadata.subject,
       date: prepared.metadata.date,
       attachments: prepared.metadata.attachments

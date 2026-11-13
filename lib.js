@@ -19,7 +19,7 @@ export function sanitizeFilenamePart(value, fallback) {
   return (cleaned || fallback).slice(0, 80);
 }
 
-export function buildFilename({ sender, date, subject, attachments }) {
+export function buildFilename({ sender, date, subject, attachments, comment }) {
   const instant = parseMailDate(date);
   const parts = instant ? new Intl.DateTimeFormat("ja-JP", {
       year: "numeric", month: "2-digit", day: "2-digit",
@@ -32,7 +32,11 @@ export function buildFilename({ sender, date, subject, attachments }) {
   // the list in the PDF holds: a mail whose attachment area could not be read
   // is not marked, and the popup says so at save time.
   const mark = (attachments || []).length ? "📩📎" : "📩";
-  return `${mark}_${sanitizeFilenamePart(sender, "差出人不明")}_${day}_${time}_${sanitizeFilenamePart(stripReplyPrefix(subject), "件名なし")}.pdf`;
+  // An optional note from the popup sits right after the mark, in braces, so
+  // it sorts and reads apart from the sender. Without a note the name is
+  // exactly what it was before the field existed.
+  const note = sanitizeFilenamePart(comment, "");
+  return `${mark}${note ? `{${note}}` : ""}_${sanitizeFilenamePart(sender, "差出人不明")}_${day}_${time}_${sanitizeFilenamePart(stripReplyPrefix(subject), "件名なし")}.pdf`;
 }
 
 // The PDF carries the full attachment list, so the popup only has to make the

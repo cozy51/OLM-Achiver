@@ -6,6 +6,7 @@ const senderInput = document.querySelector("#sender");
 const pasteButton = document.querySelector("#paste");
 const hint = document.querySelector("#hint");
 const markdownBox = document.querySelector("#markdown");
+const commentInput = document.querySelector("#comment");
 const MARKDOWN_KEY = "saveMarkdown";
 
 // The choice is kept between uses: someone who archives in Markdown wants it
@@ -76,7 +77,7 @@ button.addEventListener("click", async () => {
   status.className = "";
   status.textContent = "PDF を作成しています…";
   try {
-    const result = await chrome.runtime.sendMessage({ type: "save-current-mail", senderName, markdown: markdownBox.checked });
+    const result = await chrome.runtime.sendMessage({ type: "save-current-mail", senderName, comment: commentInput.value.trim(), markdown: markdownBox.checked });
     if (!result.ok) throw new Error(result.error || "保存に失敗しました。");
     const saved = result.printDialog
       ? `Edgeの印刷画面を開きました。「プリンター」で「PDFとして保存」を選んでください。\n推奨ファイル名: ${result.filename}`

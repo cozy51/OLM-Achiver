@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Outlook Mail PDF Archiver",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Outlook on the web で開いているメールを、元メールへのリンク付き PDF として保存します。",
   "permissions": [
     "clipboardRead",
