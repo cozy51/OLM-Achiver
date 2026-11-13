@@ -373,3 +373,8 @@ assert.match(markdownSource, /divRplyFwdMsg/);
 assert.match(markdownSource, /olm-pdf-document/);
 
 console.log("lib tests passed");
+
+// A comment goes before the first "_" in braces; an empty one changes nothing.
+assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認", comment: "要対応" }), "📩{要対応}_山田_受信日不明_時刻不明_確認.pdf");
+assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認", attachments: [{ name: "a.pdf" }], comment: " 済/保管 " }), "📩📎{済-保管}_山田_受信日不明_時刻不明_確認.pdf");
+assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認", comment: "  " }), "📩_山田_受信日不明_時刻不明_確認.pdf");
