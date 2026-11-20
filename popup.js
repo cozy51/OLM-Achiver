@@ -1,22 +1,41 @@
-import { describeAttachments } from "./lib.js";
+import { describeAttachments, normalizeSaveFormat, storedSaveFormat } from "./lib.js";
 
 const button = document.querySelector("#save");
 const status = document.querySelector("#status");
 const senderInput = document.querySelector("#sender");
 const pasteButton = document.querySelector("#paste");
 const hint = document.querySelector("#hint");
-const markdownBox = document.querySelector("#markdown");
 const commentInput = document.querySelector("#comment");
-const MARKDOWN_KEY = "saveMarkdown";
+const formatRadios = [...document.querySelectorAll('input[name="format"]')];
+const FORMAT_KEY = "saveFormat";
+const BUTTON_LABELS = {
+  pdf: "📩 このメールを PDF 保存",
+  markdown: "📩 このメールを Markdown 保存",
+  both: "📩 このメールを PDF と Markdown で保存"
+};
+
+function selectedFormat() {
+  return normalizeSaveFormat(formatRadios.find(radio => radio.checked)?.value);
+}
+
+function showFormat(format) {
+  for (const radio of formatRadios) radio.checked = radio.value === format;
+  button.textContent = BUTTON_LABELS[format];
+}
 
 // The choice is kept between uses: someone who archives in Markdown wants it
-// every time, and someone who does not should never have to untick it.
-chrome.storage.local.get({ [MARKDOWN_KEY]: false })
-  .then(stored => { markdownBox.checked = stored[MARKDOWN_KEY] === true; })
+// every time, and should never have to pick it again.
+showFormat("pdf");
+chrome.storage.local.get(["saveFormat", "saveMarkdown"])
+  .then(stored => showFormat(storedSaveFormat(stored)))
   .catch(() => {});
-markdownBox.addEventListener("change", () => {
-  chrome.storage.local.set({ [MARKDOWN_KEY]: markdownBox.checked }).catch(() => {});
-});
+for (const radio of formatRadios) {
+  radio.addEventListener("change", () => {
+    const format = selectedFormat();
+    showFormat(format);
+    chrome.storage.local.set({ [FORMAT_KEY]: format }).catch(() => {});
+  });
+}
 
 // The manifest is the single source of truth for the version, so the heading
 // never drifts from what the browser actually installed.
@@ -75,16 +94,18 @@ button.addEventListener("click", async () => {
   }
   button.disabled = true;
   status.className = "";
-  status.textContent = "PDF を作成しています…";
+  const format = selectedFormat();
+  status.textContent = format === "markdown" ? "Markdown を作成しています…" : "PDF を作成しています…";
   try {
-    const result = await chrome.runtime.sendMessage({ type: "save-current-mail", senderName, comment: commentInput.value.trim(), markdown: markdownBox.checked });
+    const result = await chrome.runtime.sendMessage({ type: "save-current-mail", senderName, comment: commentInput.value.trim(), format });
     if (!result.ok) throw new Error(result.error || "保存に失敗しました。");
-    const saved = result.printDialog
-      ? `Edgeの印刷画面を開きました。「プリンター」で「PDFとして保存」を選んでください。\n推奨ファイル名: ${result.filename}`
-      : `保存しました: ${result.filename}`;
-    const attachments = describeAttachments(result.attachments, { wells: result.attachmentWells });
+    const saved = !result.filename ? ""
+      : result.printDialog
+        ? `Edgeの印刷画面を開きました。「プリンター」で「PDFとして保存」を選んでください。\n推奨ファイル名: ${result.filename}`
+        : `保存しました: ${result.filename}`;
+    const attachments = describeAttachments(result.attachments, { wells: result.attachmentWells, document: format === "markdown" ? "Markdown" : "PDF" });
     const markdown = result.markdownFilename
-      ? `Markdownも「ダウンロード」フォルダーへ保存しました: ${result.markdownFilename}`
+      ? `Markdownを「ダウンロード」フォルダーへ保存しました: ${result.markdownFilename}`
       : result.markdownError ? `Markdownは保存できませんでした: ${result.markdownError}` : "";
     status.textContent = [saved, attachments, markdown].filter(Boolean).join("\n");
   } catch (error) {

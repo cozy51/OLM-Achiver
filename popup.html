@@ -15,10 +15,13 @@
   <label for="comment">コメント<span class="optional">(任意)</span></label>
   <p class="hint">ファイル名の先頭に {コメント} として入ります。</p>
   <input id="comment" class="comment" type="text" placeholder="例: 要対応" autocomplete="off" maxlength="80">
-  <label class="option" for="markdown">
-    <input id="markdown" type="checkbox">
-    <span>Markdown (.md) も保存する<small>「ダウンロード」フォルダーへ自動で保存します</small></span>
-  </label>
+  <fieldset class="formats">
+    <legend>保存形式</legend>
+    <label class="option"><input type="radio" name="format" value="pdf"><span>PDFのみ</span></label>
+    <label class="option"><input type="radio" name="format" value="markdown"><span>Markdown (.md) のみ</span></label>
+    <label class="option"><input type="radio" name="format" value="both"><span>両方</span></label>
+    <p class="hint">Markdownは「ダウンロード」フォルダーへ自動で保存します。</p>
+  </fieldset>
   <button id="save">📩 このメールを PDF 保存</button>
   <p id="status" role="status"></p>
   <script type="module" src="popup.js"></script>

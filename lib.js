@@ -37,17 +37,20 @@ export function buildFilename({ sender, date, attachments, comment }) {
 // tell that the right message was saved.
 export function describeAttachments(attachments, diagnostics = {}) {
   const names = (attachments || []).map(item => String(item?.name || "").trim()).filter(Boolean);
+  // Names the file the list went into: the PDF, or the Markdown when that is
+  // the only thing saved.
+  const doc = diagnostics.document || "PDF";
   if (!names.length) {
     // Saying nothing is right for a message with nothing attached. An
     // attachment area that was found but could not be read is a different
     // result, and reporting it as silence would leave the PDF quietly short of
     // what the user asked it to record.
     return diagnostics.wells
-      ? "添付欄は見つかりましたが、ファイル名を読み取れませんでした。PDFに一覧は入っていません。"
+      ? `添付欄は見つかりましたが、ファイル名を読み取れませんでした。${doc}に一覧は入っていません。`
       : "";
   }
   const rest = names.length > 3 ? ` ほか${names.length - 3}件` : "";
-  return `添付ファイル ${names.length}件の名前とリンクをPDFに記載しました: ${names.slice(0, 3).join(" / ")}${rest}`;
+  return `添付ファイル ${names.length}件の名前とリンクを${doc}に記載しました: ${names.slice(0, 3).join(" / ")}${rest}`;
 }
 
 export function parseMailDate(value) {
@@ -85,4 +88,19 @@ export function selectOutlookTab(tabs) {
   const candidates = tabs.filter(tab => tab.id && isSupportedOutlookUrl(tab.url));
   return candidates.find(tab => tab.active) ||
     candidates.sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+}
+
+// What the popup saves: the PDF, the Markdown, or both. Anything else falls
+// back to the PDF alone, which is what the extension did before the choice.
+export const SAVE_FORMATS = ["pdf", "markdown", "both"];
+
+export function normalizeSaveFormat(value) {
+  return SAVE_FORMATS.includes(value) ? value : "pdf";
+}
+
+// The choice used to be a single "also save Markdown" checkbox. A user who had
+// ticked it keeps getting both files instead of silently losing the Markdown.
+export function storedSaveFormat(stored = {}) {
+  if (SAVE_FORMATS.includes(stored.saveFormat)) return stored.saveFormat;
+  return stored.saveMarkdown === true ? "both" : "pdf";
 }

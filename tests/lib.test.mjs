@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { buildFilename, describeAttachments, isSupportedOutlookUrl, parseMailDate, sanitizeFilenamePart, selectOutlookTab } from "../lib.js";
+import { buildFilename, describeAttachments, isSupportedOutlookUrl, normalizeSaveFormat, parseMailDate, sanitizeFilenamePart, selectOutlookTab, storedSaveFormat } from "../lib.js";
 import { attachmentMark, buildMarkdownDocument, extractBodyMarkdown, formatMailDate, markdownDataUrl, markdownFilename } from "../markdown.js";
 import { buildPrintPageExpression } from "../print-page.js";
 import { attachmentLink, attachmentNameBeforeCommand, attachmentNameFrom, attachmentSubjectFrom, listAttachments } from "../attachments.js";
@@ -367,9 +367,24 @@ assert.match(markdownSource, /safelinks/);
 assert.match(markdownSource, /divRplyFwdMsg/);
 assert.match(markdownSource, /olm-pdf-document/);
 
-console.log("lib tests passed");
 
 // A comment goes before the first "_" in braces; an empty one changes nothing.
 assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認", comment: "要対応" }), "📩{要対応}_山田_受信日不明_時刻不明.pdf");
 assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認", attachments: [{ name: "a.pdf" }], comment: " 済/保管 " }), "📩📎{済-保管}_山田_受信日不明_時刻不明.pdf");
 assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認", comment: "  " }), "📩_山田_受信日不明_時刻不明.pdf");
+// The popup saves the PDF, the Markdown, or both; an unknown value is the PDF.
+assert.equal(normalizeSaveFormat("markdown"), "markdown");
+assert.equal(normalizeSaveFormat("both"), "both");
+assert.equal(normalizeSaveFormat("docx"), "pdf");
+assert.equal(normalizeSaveFormat(undefined), "pdf");
+// A user who had ticked the old "also save Markdown" box keeps both files.
+assert.equal(storedSaveFormat({}), "pdf");
+assert.equal(storedSaveFormat({ saveMarkdown: true }), "both");
+assert.equal(storedSaveFormat({ saveMarkdown: false }), "pdf");
+assert.equal(storedSaveFormat({ saveFormat: "markdown", saveMarkdown: true }), "markdown");
+assert.equal(storedSaveFormat({ saveFormat: "bogus", saveMarkdown: true }), "both");
+// The attachment report names the file the list went into.
+assert.match(describeAttachments([{ name: "a.pdf" }], { document: "Markdown" }), /をMarkdownに記載しました/);
+assert.match(describeAttachments([{ name: "a.pdf" }]), /をPDFに記載しました/);
+assert.match(describeAttachments([], { wells: 1, document: "Markdown" }), /Markdownに一覧は入っていません/);
+console.log("lib tests passed");
