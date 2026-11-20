@@ -1,5 +1,5 @@
 import { listAttachments } from "./attachments.js";
-import { buildFilename, isSupportedOutlookUrl, selectOutlookTab } from "./lib.js";
+import { buildFilename, isSupportedOutlookUrl, normalizeSaveFormat, selectOutlookTab } from "./lib.js";
 import { buildMarkdownDocument, extractBodyMarkdown, markdownDataUrl, markdownFilename } from "./markdown.js";
 import { buildPrintPageExpression, outlookPrintMode } from "./print-page.js";
 import { collectAttachmentTiles } from "./scan-attachments.js";
@@ -108,7 +108,6 @@ async function saveWithPrintDialog(tab, senderName, wantsMarkdown, comment = "")
   const filename = buildFilename({
     sender: senderName,
     comment,
-    subject: prepared.metadata.subject,
     date: prepared.metadata.date,
     attachments: prepared.metadata.attachments
   });
@@ -125,6 +124,51 @@ async function saveWithPrintDialog(tab, senderName, wantsMarkdown, comment = "")
   return {
     filename,
     printDialog: true,
+    attachments: prepared.metadata.attachments || [],
+    attachmentWells: attachments.wells,
+    ...markdown
+  };
+}
+
+// Markdown alone needs no PDF, so nothing is printed and the debugger is never
+// attached: the mail is read from the page, the print copy that reading builds
+// is taken down again, and the file goes straight to the downloads folder.
+async function saveMarkdownOnly(senderName, comment = "") {
+  const sender = String(senderName || "").trim();
+  if (!sender) throw new Error("差出人名を入力してください。");
+  const tab = await runStep("findTab", findOutlookTab);
+  if (!tab) throw new Error("このウィンドウで Outlook on the web のメールを開いてください。");
+  const attachments = await readAttachments(tab.id);
+  const body = await readBodyMarkdown(tab.id);
+  let prepared;
+  try {
+    const startResults = await runStep("readMail", () => chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: outlookPrintMode,
+      args: ["start", tab.url, attachments.files],
+      world: "ISOLATED"
+    }));
+    prepared = startResults?.[0]?.result;
+  } finally {
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: outlookPrintMode,
+      args: ["end"],
+      world: "ISOLATED"
+    }).catch(() => {});
+  }
+  if (!prepared?.ok) {
+    throw new Error(`【失敗箇所: メール内容とURLの取得】${prepared?.error || "メールの読み取りに失敗しました。"}`);
+  }
+  const pdfName = buildFilename({
+    sender,
+    comment,
+    date: prepared.metadata.date,
+    attachments: prepared.metadata.attachments
+  });
+  const markdown = await saveMarkdown({ pdfFilename: pdfName, sender, metadata: prepared.metadata, body });
+  if (markdown.markdownError) throw new Error(`【失敗箇所: Markdownの保存】${markdown.markdownError}`);
+  return {
     attachments: prepared.metadata.attachments || [],
     attachmentWells: attachments.wells,
     ...markdown
@@ -164,7 +208,14 @@ async function detectSender() {
 }
 
 const HANDLERS = {
-  "save-current-mail": request => saveCurrentMail(request.senderName, request.markdown === true, String(request.comment || "")),
+  "save-current-mail": request => {
+    // "markdown: true" is what a popup from before the format choice sends.
+    const format = normalizeSaveFormat(request.format || (request.markdown === true ? "both" : "pdf"));
+    const comment = String(request.comment || "");
+    return format === "markdown"
+      ? saveMarkdownOnly(request.senderName, comment)
+      : saveCurrentMail(request.senderName, format === "both", comment);
+  },
   "detect-sender": () => detectSender()
 };
 
@@ -225,7 +276,6 @@ async function saveCurrentMail(senderName, wantsMarkdown = false, comment = "") 
     const filename = buildFilename({
       sender: senderName.trim(),
       comment,
-      subject: prepared.metadata.subject,
       date: prepared.metadata.date,
       attachments: prepared.metadata.attachments
     });
