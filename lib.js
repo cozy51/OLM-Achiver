@@ -1,13 +1,3 @@
-export function stripReplyPrefix(subject) {
-  let value = (subject || "").trim();
-  // Outlook can prepend an importance marker before the reply prefix, for
-  // example "[!]RE:". Underscores also appear when a colon has already been
-  // converted for use in a filename.
-  const prefix = /^(?:\[\s*!\s*\]\s*|[!！]\s*)?(?:(?:re|fw|fwd|返信|転送)\s*(?:\[\d+\])?\s*[:：_-]\s*)/i;
-  while (prefix.test(value)) value = value.replace(prefix, "").trim();
-  return value || "件名なし";
-}
-
 export function sanitizeFilenamePart(value, fallback) {
   const cleaned = (value || "")
     // "_" joins the fields of the file name, so a sender written as
@@ -19,7 +9,7 @@ export function sanitizeFilenamePart(value, fallback) {
   return (cleaned || fallback).slice(0, 80);
 }
 
-export function buildFilename({ sender, date, subject, attachments, comment }) {
+export function buildFilename({ sender, date, attachments, comment }) {
   const instant = parseMailDate(date);
   const parts = instant ? new Intl.DateTimeFormat("ja-JP", {
       year: "numeric", month: "2-digit", day: "2-digit",
@@ -36,7 +26,10 @@ export function buildFilename({ sender, date, subject, attachments, comment }) {
   // it sorts and reads apart from the sender. Without a note the name is
   // exactly what it was before the field existed.
   const note = sanitizeFilenamePart(comment, "");
-  return `${mark}${note ? `{${note}}` : ""}_${sanitizeFilenamePart(sender, "差出人不明")}_${day}_${time}_${sanitizeFilenamePart(stripReplyPrefix(subject), "件名なし")}.pdf`;
+  // The name ends with the received time. A subject made long names that
+  // crowded the folder listing; the subject is still the heading of the PDF
+  // and the Markdown, so it is not lost.
+  return `${mark}${note ? `{${note}}` : ""}_${sanitizeFilenamePart(sender, "差出人不明")}_${day}_${time}.pdf`;
 }
 
 // The PDF carries the full attachment list, so the popup only has to make the

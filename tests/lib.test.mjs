@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { buildFilename, describeAttachments, isSupportedOutlookUrl, parseMailDate, sanitizeFilenamePart, selectOutlookTab, stripReplyPrefix } from "../lib.js";
+import { buildFilename, describeAttachments, isSupportedOutlookUrl, parseMailDate, sanitizeFilenamePart, selectOutlookTab } from "../lib.js";
 import { attachmentMark, buildMarkdownDocument, extractBodyMarkdown, formatMailDate, markdownDataUrl, markdownFilename } from "../markdown.js";
 import { buildPrintPageExpression } from "../print-page.js";
 import { attachmentLink, attachmentNameBeforeCommand, attachmentNameFrom, attachmentSubjectFrom, listAttachments } from "../attachments.js";
@@ -7,23 +7,18 @@ import { collectAttachmentTiles } from "../scan-attachments.js";
 import { collectSenderCandidates } from "../scan-sender.js";
 import { CONFIDENT_SENDER_SCORE, cleanSenderName, isSenderLike, rankSenders } from "../sender.js";
 
-assert.equal(stripReplyPrefix("RE: Re[2]: FW： 月次報告"), "月次報告");
-assert.equal(stripReplyPrefix("返信: 転送：確認"), "確認");
-assert.equal(stripReplyPrefix("[!]RE: 【依頼】確認"), "【依頼】確認");
-assert.equal(stripReplyPrefix("[!]RE_ FW- 月次報告"), "月次報告");
-assert.equal(stripReplyPrefix("【依頼】RE: 確認"), "【依頼】RE: 確認");
 assert.equal(sanitizeFilenamePart('A/B: C*?'), "A-B- C--");
 // A sender such as "Ito Takeshi / 伊藤剛" must stay one readable field.
 assert.equal(sanitizeFilenamePart("Ito Takeshi / 伊藤剛"), "Ito Takeshi - 伊藤剛");
-assert.equal(buildFilename({ sender: "山田 太郎", date: new Date("2026-07-16T16:13:00+09:00"), subject: "RE: 進捗/報告" }), "📩_山田 太郎_20260716_0713_進捗-報告.pdf");
-assert.equal(buildFilename({ sender: "渡邉 陽介", date: "2026-07-13 (月) 20:41", subject: "【依頼】確認" }), "📩_渡邉 陽介_20260713_2041_【依頼】確認.pdf");
+assert.equal(buildFilename({ sender: "山田 太郎", date: new Date("2026-07-16T16:13:00+09:00"), subject: "RE: 進捗/報告" }), "📩_山田 太郎_20260716_0713.pdf");
+assert.equal(buildFilename({ sender: "渡邉 陽介", date: "2026-07-13 (月) 20:41", subject: "【依頼】確認" }), "📩_渡邉 陽介_20260713_2041.pdf");
 assert.equal(parseMailDate("2026年7月13日 20:41").getMinutes(), 41);
-assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認" }), "📩_山田_受信日不明_時刻不明_確認.pdf");
+assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認" }), "📩_山田_受信日不明_時刻不明.pdf");
 // The clip says the mail carried files, so a folder listing shows it without
 // the PDF being opened. An empty list is a mail with nothing attached.
 assert.equal(
   buildFilename({ sender: "犬飼 一富", date: "2026-07-13 (月) 11:49", subject: "RE: HU300 期末棚卸について", attachments: [{ name: "S36C-0i26071311400.pdf" }] }),
-  "📩📎_犬飼 一富_20260713_1149_HU300 期末棚卸について.pdf"
+  "📩📎_犬飼 一富_20260713_1149.pdf"
 );
 assert.match(buildFilename({ sender: "山田", date: "", subject: "確認", attachments: [] }), /^📩_/);
 assert.equal(isSupportedOutlookUrl("https://outlook.cloud.microsoft/mail/deeplink/read/AAkALgAAAA?ItemID=AAkALg%2FA&exvsurl=1"), true);
@@ -332,7 +327,7 @@ assert.deepEqual(listAttachments({ entries: [] }), []);
 
 // Markdown is saved next to the PDF under the same name, so the two files of
 // one mail sort side by side.
-assert.equal(markdownFilename("📩📎_山田_20260713_2041_確認.pdf"), "📩📎_山田_20260713_2041_確認.md");
+assert.equal(markdownFilename("📩📎_山田_20260713_2041.pdf"), "📩📎_山田_20260713_2041.md");
 assert.equal(formatMailDate("2026-07-13 (月) 20:41"), "2026-07-13 (月) 20:41");
 assert.equal(formatMailDate(""), "不明");
 assert.equal(attachmentMark({ name: "仕様書.xlsx" }), "📊");
@@ -375,6 +370,6 @@ assert.match(markdownSource, /olm-pdf-document/);
 console.log("lib tests passed");
 
 // A comment goes before the first "_" in braces; an empty one changes nothing.
-assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認", comment: "要対応" }), "📩{要対応}_山田_受信日不明_時刻不明_確認.pdf");
-assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認", attachments: [{ name: "a.pdf" }], comment: " 済/保管 " }), "📩📎{済-保管}_山田_受信日不明_時刻不明_確認.pdf");
-assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認", comment: "  " }), "📩_山田_受信日不明_時刻不明_確認.pdf");
+assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認", comment: "要対応" }), "📩{要対応}_山田_受信日不明_時刻不明.pdf");
+assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認", attachments: [{ name: "a.pdf" }], comment: " 済/保管 " }), "📩📎{済-保管}_山田_受信日不明_時刻不明.pdf");
+assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認", comment: "  " }), "📩_山田_受信日不明_時刻不明.pdf");

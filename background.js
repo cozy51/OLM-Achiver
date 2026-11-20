@@ -108,7 +108,6 @@ async function saveWithPrintDialog(tab, senderName, wantsMarkdown, comment = "")
   const filename = buildFilename({
     sender: senderName,
     comment,
-    subject: prepared.metadata.subject,
     date: prepared.metadata.date,
     attachments: prepared.metadata.attachments
   });
@@ -225,7 +224,6 @@ async function saveCurrentMail(senderName, wantsMarkdown = false, comment = "") 
     const filename = buildFilename({
       sender: senderName.trim(),
       comment,
-      subject: prepared.metadata.subject,
       date: prepared.metadata.date,
       attachments: prepared.metadata.attachments
     });
