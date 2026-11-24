@@ -9,6 +9,16 @@ export function sanitizeFilenamePart(value, fallback) {
   return (cleaned || fallback).slice(0, 80);
 }
 
+// Outlook writes colleagues as "犬飼 一富（Inukai,K.）". The romanised part in
+// brackets only makes the file name longer and differs from senders shown
+// without it, so the name keeps just the part outside the brackets. A sender
+// that is nothing but a bracket keeps its text rather than becoming empty.
+export function senderForFilename(value) {
+  const text = String(value || "");
+  const stripped = text.replace(/\s*[(（][^()（）]*[)）]\s*/g, " ").replace(/\s+/g, " ").trim();
+  return stripped || text.replace(/[()（）]/g, " ").replace(/\s+/g, " ").trim();
+}
+
 export function buildFilename({ sender, date, attachments, comment }) {
   const instant = parseMailDate(date);
   const parts = instant ? new Intl.DateTimeFormat("ja-JP", {
@@ -29,7 +39,7 @@ export function buildFilename({ sender, date, attachments, comment }) {
   // The name ends with the received time. A subject made long names that
   // crowded the folder listing; the subject is still the heading of the PDF
   // and the Markdown, so it is not lost.
-  return `${mark}_${sanitizeFilenamePart(sender, "差出人不明")}_${day}_${time}${note ? `_${note}` : ""}.pdf`;
+  return `${mark}_${sanitizeFilenamePart(senderForFilename(sender), "差出人不明")}_${day}_${time}${note ? `_${note}` : ""}.pdf`;
 }
 
 // The PDF carries the full attachment list, so the popup only has to make the
