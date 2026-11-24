@@ -22,14 +22,14 @@ export function buildFilename({ sender, date, attachments, comment }) {
   // the list in the PDF holds: a mail whose attachment area could not be read
   // is not marked, and the popup says so at save time.
   const mark = (attachments || []).length ? "📩📎" : "📩";
-  // An optional note from the popup sits right after the mark, in braces, so
-  // it sorts and reads apart from the sender. Without a note the name is
-  // exactly what it was before the field existed.
+  // An optional note from the popup goes after the received time as one more
+  // "_" field, so names still sort by sender and time. Without a note the name
+  // is exactly what it was before the field existed.
   const note = sanitizeFilenamePart(comment, "");
   // The name ends with the received time. A subject made long names that
   // crowded the folder listing; the subject is still the heading of the PDF
   // and the Markdown, so it is not lost.
-  return `${mark}${note ? `{${note}}` : ""}_${sanitizeFilenamePart(sender, "差出人不明")}_${day}_${time}.pdf`;
+  return `${mark}_${sanitizeFilenamePart(sender, "差出人不明")}_${day}_${time}${note ? `_${note}` : ""}.pdf`;
 }
 
 // The PDF carries the full attachment list, so the popup only has to make the

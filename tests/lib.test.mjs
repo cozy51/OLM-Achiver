@@ -368,9 +368,9 @@ assert.match(markdownSource, /divRplyFwdMsg/);
 assert.match(markdownSource, /olm-pdf-document/);
 
 
-// A comment goes before the first "_" in braces; an empty one changes nothing.
-assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認", comment: "要対応" }), "📩{要対応}_山田_受信日不明_時刻不明.pdf");
-assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認", attachments: [{ name: "a.pdf" }], comment: " 済/保管 " }), "📩📎{済-保管}_山田_受信日不明_時刻不明.pdf");
+// A comment goes after the received time as another "_" field; an empty one changes nothing.
+assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認", comment: "要対応" }), "📩_山田_受信日不明_時刻不明_要対応.pdf");
+assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認", attachments: [{ name: "a.pdf" }], comment: " 済/保管 " }), "📩📎_山田_受信日不明_時刻不明_済-保管.pdf");
 assert.equal(buildFilename({ sender: "山田", date: "", subject: "確認", comment: "  " }), "📩_山田_受信日不明_時刻不明.pdf");
 // The popup saves the PDF, the Markdown, or both; an unknown value is the PDF.
 assert.equal(normalizeSaveFormat("markdown"), "markdown");
