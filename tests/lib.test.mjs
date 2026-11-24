@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { buildFilename, describeAttachments, isSupportedOutlookUrl, normalizeSaveFormat, parseMailDate, sanitizeFilenamePart, selectOutlookTab, storedSaveFormat } from "../lib.js";
+import { buildFilename, senderForFilename, describeAttachments, isSupportedOutlookUrl, normalizeSaveFormat, parseMailDate, sanitizeFilenamePart, selectOutlookTab, storedSaveFormat } from "../lib.js";
 import { attachmentMark, buildMarkdownDocument, extractBodyMarkdown, formatMailDate, markdownDataUrl, markdownFilename } from "../markdown.js";
 import { buildPrintPageExpression } from "../print-page.js";
 import { attachmentLink, attachmentNameBeforeCommand, attachmentNameFrom, attachmentSubjectFrom, listAttachments } from "../attachments.js";
@@ -21,6 +21,12 @@ assert.equal(
   "📩📎_犬飼 一富_20260713_1149.pdf"
 );
 assert.match(buildFilename({ sender: "山田", date: "", subject: "確認", attachments: [] }), /^📩_/);
+// The romanised "（Inukai,K.）" is left out of the file name so every sender
+// reads the same way in the folder listing.
+assert.equal(buildFilename({ sender: "犬飼 一富（Inukai,K.）", date: "2026-11-06 (金) 11:30" }), "📩_犬飼 一富_20261106_1130.pdf");
+assert.equal(buildFilename({ sender: "平田 洋規 (Hirata,H.)", date: "2026-11-06 (金) 18:00" }), "📩_平田 洋規_20261106_1800.pdf");
+assert.equal(senderForFilename("大坪 邦弘"), "大坪 邦弘");
+assert.equal(senderForFilename("（Inukai,K.）"), "Inukai,K.");
 assert.equal(isSupportedOutlookUrl("https://outlook.cloud.microsoft/mail/deeplink/read/AAkALgAAAA?ItemID=AAkALg%2FA&exvsurl=1"), true);
 assert.equal(isSupportedOutlookUrl("https://outlook.cloud.microsoft.evil.example/mail"), false);
 assert.equal(selectOutlookTab([
